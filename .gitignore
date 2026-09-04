@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+*/node_modules/
+website/frontend/node_modules/
+website/backend/node_modules/
+
+# Build outputs
+dist/
+build/
+website/frontend/dist/
+
+# Python virtual environment & cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# ML Models, Weights & Datasets (Prevent exceeding GitHub 100MB file limit)
+sih_finetuned_model/
+sih_extraction_lora_model/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.zip
+*.tar
+*.gz
+*.jsonl
+train_dataset_hinglish_heavy_100k.jsonl
+website.zip
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<title>Infrasutra — SIH Judge Defense & Architecture Manual</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;600&display=swap');
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #0f172a;
+    background-color: #ffffff;
+    line-height: 1.55;
+    font-size: 11.5pt;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Header & Branding */
+  .cover-header {
+    border-bottom: 3px solid #f59e0b;
+    padding-bottom: 18px;
+    margin-bottom: 25px;
+  }
+  .badge {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    font-weight: 800;
+    font-size: 8.5pt;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid #fcd34d;
+  }
+  h1 {
+    font-size: 24pt;
+    font-weight: 900;
+    color: #0f172a;
+    margin: 10px 0 6px 0;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .subtitle {
+    font-size: 12pt;
+    color: #475569;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 9pt;
+  }
+  .meta-item strong {
+    color: #0f172a;
+    display: block;
+    font-size: 8pt;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  /* Section Styling */
+  h2 {
+    font-size: 15pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-left: 5px solid #f59e0b;
+    padding-left: 10px;
+    margin-top: 30px;
+    margin-bottom: 12px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 12.5pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+  p, li {
+    color: #334155;
+    font-size: 10.5pt;
+  }
+  ul, ol {
+    margin-top: 6px;
+    margin-bottom: 12px;
+    padding-left: 22px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 20px 0;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background-color: #f1f5f9;
+    color: #0f172a;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 8pt;
+    letter-spacing: 0.04em;
+  }
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+
+  /* Callout Boxes */
+  .callout {
+    background-color: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 14px 0;
+    font-size: 10pt;
+  }
+  .callout-title {
+    font-weight: 800;
+    color: #92400e;
+    margin-bottom: 4px;
+    font-size: 9.5pt;
+    text-transform: uppercase;
+  }
+  .callout-blue {
+    background-color: #eff6ff;
+    border-left-color: #3b82f6;
+  }
+  .callout-blue .callout-title {
+    color: #1e40af;
+  }
+
+  /* Code & Pre */
+  code {
+    font-family: 'Fira Code', monospace;
+    background-color: #f1f5f9;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 9pt;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+  }
+  pre {
+    background-color: #0f172a;
+    color: #f8fafc;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-family: 'Fira Code', monospace;
+    font-size: 8.5pt;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    line-height: 1.45;
+    margin: 12px 0;
+  }
+
+  /* Status Badges */
+  .status-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 8pt;
+  }
+  .status-done { background: #dcfce7; color: #166534; }
+  .status-partial { background: #fef9c3; color: #854d0e; }
+  .status-future { background: #e0f2fe; color: #075985; }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  /* Print specific */
+  @media print {
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="cover-header">
+  <span class="badge">Smart India Hackathon (SIH) • Problem Statement PS-122</span>
+  <h1>INFRASUTRA — Technical Defense & Architecture Manual</h1>
+  <div class="subtitle">Next-Gen Intelligent Infrastructure Monitoring, Schedule-Linking & Delay-Forecasting Engine</div>
+  <div class="meta-grid">
+    <div class="meta-item"><strong>Platform Target</strong> Oil & Gas / Heavy EPC</div>
+    <div class="meta-item"><strong>Hardware Runtime</strong> RTX 4050 (6GB VRAM)</div>
+    <div class="meta-item"><strong>Primary AI</strong> LLaMA-3-8B LoRA + XGBoost</div>
+    <div class="meta-item"><strong>Database Engine</strong> SQLite 3 (WAL Relational)</div>
+  </div>
+</div>
+
+<!-- PART 1: OVERVIEW -->
+<h2>1. Infrasutra Kya Hai Aur Kyun Banaya Gaya?</h2>
+<p>
+  <strong>Infrasutra</strong> ek enterprise-grade AI infrastructure management aur schedule synchronization system hai. Iska core objective real-world site construction reality aur corporate office ke <strong>Primavera P6 / WBS Schedule</strong> ke beech ke multi-crore disconnect ko eliminate karna hai.
+</p>
+
+<div class="callout">
+  <div class="callout-title">The Real-World Industry Problem (PS-122 Disconnect)</div>
+  <p style="margin:0;">
+    Heavy infrastructure projects (jaise Oil India ke crude oil pipeline expansions ya gas processing plants) me field supervisors trench aur site par hote hain. Wo complex desktop software nahi chalate; wo <strong>Hinglish me WhatsApp audio ya text</strong> bhejte hain. Dusri taraf, head office me planners Primavera P6 me 5,000+ line items manage karte hain. Field data ko schedule me reconcile hone me <strong>15 se 30 din ka reporting lag</strong> lagta hai, jisse unrecorded micro-delays critical path pe cascade hokar <strong>crores ke budget overruns</strong> ban jate hain.
+  </p>
+</div>
+
+<h3>Comparison: Generic Tools vs Enterprise P6 vs Infrasutra</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Generic PM (Jira / Trello)</th>
+      <th>Enterprise Schedulers (Primavera P6)</th>
+      <th>Infrasutra (Hamara Solution)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Target Domain</strong></td>
+      <td>Software sprints, marketing tickets</td>
+      <td>Heavy engineering & EPC schedules</td>
+      <td><strong>Field-to-Primavera Intelligent Bridge</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Input Modality</strong></td>
+      <td>Structured forms, keyboard input</td>
+      <td>Manual desktop WBS entry</td>
+      <td><strong>Natural Hinglish Voice & Telegram Bot</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Schedule Structure</strong></td>
+      <td>Epics, user stories, flat lists</td>
+      <td>Rigid L1–L6 WBS, Critical Path (CPM)</td>
+      <td><strong>Automated Voice-to-L4/L5 Activity Linking</strong></td>
+    </tr>
+    <tr>
+      <td><strong>AI Capabilities</strong></td>
+      <td>Basic text summaries</td>
+      <td>None (Deterministic network math)</td>
+      <td><strong>Fine-tuned 8B LLM + XGBoost Delay Predictor</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Project Security</strong></td>
+      <td>Workspace level permissions</td>
+      <td>Complex database admin roles</td>
+      <td><strong>Database-level Project Join Table Segregation</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- PART 2: IMPLEMENTATION STATUS -->
+<h2>2. Asli Codebase Implementation Audit (Ground Truth)</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Module</th>
+      <th>Status</th>
+      <th>Exact Codebase Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Authentication</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td>FastAPI me HMAC-SHA256 Bearer Token system (<code>/api/auth/login</code>) aur SHA-256 password hashing.</td>
+    </tr>
+    <tr>
+      <td><strong>RBAC & Access Control</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td><code>supervisor</code> aur <code>planner</code> roles. <code>project_assignments</code> table se strict database isolation.</td>
+    </tr>
+    <tr>
+      <td><strong>Supervisor Assignment</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td>Dynamic dropdown (<code>GET /api/users/supervisors</code>), role validation (rejects planners), and unassigned support.</td>
+    </tr>
+    <tr>
+      <td><strong>Project Reassignment</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td>Old supervisor loses DB access; new supervisor gains access; both get notifications.</td>
+    </tr>
+    <tr>
+      <td><strong>In-App Notifications</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td><code>notifications</code> table SQLite me. React Navbar me dynamic pulsing bell aur unread badge.</td>
+    </tr>
+    <tr>
+      <td><strong>Email Notifications</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td>Modular non-blocking Python <code>smtplib</code> service. Email failure DB transaction rollback nahi karta.</td>
+    </tr>
+    <tr>
+      <td><strong>Hinglish NLP Extractor</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td>LLaMA-3-8B LoRA fine-tuned model on RTX 4050 (40k samples, loss 0.175, accuracy 95.36%).</td>
+    </tr>
+    <tr>
+      <td><strong>Semantic Matcher</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td>Char n-gram TF-IDF + RapidFuzz. Confidence $\ge 90\%$ hone par auto-approved push to database.</td>
+    </tr>
+    <tr>
+      <td><strong>Delay Predictor</strong></td>
+      <td><span class="status-tag status-done">✅ Implemented</span></td>
+      <td>XGBoost regressor model (<code>project_delay_model.json</code>) predicting schedule variance days.</td>
+    </tr>
+    <tr>
+      <td><strong>Primavera XER Import</strong></td>
+      <td><span class="status-tag status-partial">🟡 Partial</span></td>
+      <td>Frontend modal parses table rows; seeds local SQLite activities.</td>
+    </tr>
+    <tr>
+      <td><strong>Real-Time WebSockets</strong></td>
+      <td><span class="status-tag status-future">🔵 Future Scope</span></td>
+      <td>Currently client polling (12s). WebSockets planned for Phase 2.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- PART 3: ARCHITECTURE & DATA FLOW -->
+<h2>3. End-to-End System Architecture</h2>
+<pre>
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             FRONTEND LAYER                                  │
+│   React 18  │  Vite 8.2  │  Tailwind CSS  │  Lucide React  │  Recharts     │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ HTTP / JSON (Axios & Fetch)
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              BACKEND LAYER                                  │
+│   FastAPI (Python 3.13)      ◄─── Dual Engine ───►   Express.js (Node 20)   │
+│   • Auth, RBAC, Projects                             • Delay Prediction API │
+│   • LoRA LLM Inference                               • Telegram Webhook     │
+│   • TF-IDF & Fuzzy Matching                          • XGBoost Bridge       │
+│   • Non-Blocking SMTP Service                                               │
+└──────────────────────┬───────────────────────────────┬──────────────────────┘
+                       │                               │
+                       ▼                               ▼
+┌──────────────────────────────────────┐     ┌────────────────────────────────┐
+│            DATABASE LAYER            │     │          AI / ML LAYER         │
+│   SQLite 3 (WAL Mode, Relational)    │     │   Fine-Tuned LLaMA-3-8B (LoRA) │
+│   • Users, Projects, Assignments     │     │   XGBoost Regressor Model      │
+│   • Schedule Activities, Updates     │     │   TF-IDF + RapidFuzz Engine    │
+└──────────────────────────────────────┘     └────────────────────────────────┘
+</pre>
+
+<h3>Relational Database Schema (3NF SQLite)</h3>
+<ul>
+  <li><code>users</code>: <code>id (PK)</code>, <code>name</code>, <code>email (UNIQUE)</code>, <code>password_hash</code>, <code>role (supervisor/planner)</code></li>
+  <li><code>projects</code>: <code>id (PK: PRJ-01)</code>, <code>name</code>, <code>location</code>, <code>budget</code>, <code>supervisor</code>, <code>progress</code>, <code>varianceDays</code></li>
+  <li><code>project_assignments</code>: <code>id (PK)</code>, <code>user_id (FK)</code>, <code>project_id (FK)</code>, <code>role</code>. (Guarantees isolation).</li>
+  <li><code>schedule_activities</code>: <code>activity_id (PK: PIP-1001)</code>, <code>project_id (FK)</code>, <code>activity_name</code>, <code>discipline</code>, <code>planned_start</code>, <code>planned_end</code>, <code>percent_complete</code>, <code>wbs_level</code>, <code>location_zone</code></li>
+  <li><code>pending_updates</code>: <code>id (PK)</code>, <code>project_id</code>, <code>raw_input</code>, <code>extracted_task</code>, <code>confidence</code>, <code>status (pending/approved)</code>, <code>submitted_by</code></li>
+  <li><code>notifications</code>: <code>id (PK)</code>, <code>user_id (FK)</code>, <code>project_id</code>, <code>message</code>, <code>notification_type</code>, <code>is_read (0/1)</code>, <code>created_at</code></li>
+</ul>
+
+<!-- PART 4: AI & ML DEEP DIVE -->
+<h2>4. AI & Machine Learning Pipeline</h2>
+
+<h3>1. Fine-Tuned LLaMA-3-8B LoRA Model (Hinglish Extractor)</h3>
+<ul>
+  <li><strong>Base Model</strong>: <code>unsloth/llama-3-8b-Instruct-bnb-4bit</code></li>
+  <li><strong>Dataset</strong>: 40,000 domain-specific Hinglish construction audio/text transcripts.</li>
+  <li><strong>LoRA Configuration</strong>: Rank $r=8$, Alpha $lpha=16$, targeting <code>q_proj, k_proj, v_proj, o_proj</code>.</li>
+  <li><strong>Hardware Efficiency</strong>: 4-bit NF4 double quantization + native BF16 on NVIDIA RTX 4050 (6GB VRAM).</li>
+  <li><strong>Training Performance</strong>:
+    <ul>
+      <li>Initial Loss: <code>4.257</code> ➔ Final Loss: <strong><code>0.1751</code> (-96% reduction)</strong></li>
+      <li>Mean Token Accuracy: Jumped from <code>45.17%</code> to <strong><code>95.36%</code></strong></li>
+      <li>Saved Model Size: <strong>13.6 MB</strong> (<code>adapter_model.safetensors</code>)</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2. Semantic Matching Engine & $\ge 90\%$ Auto-Push Gate</h3>
+<p>
+  Extracted task ko pre-seeded schedule activities se match karne ke liye hybrid formula use hota hai:
+</p>
+<pre>
+Fuzzy_Score = RapidFuzz.token_set_ratio(query, activity_name) / 100.0
+Cosine_Score = CosineSimilarity(TFIDF(query), TFIDF(activity_name))
+Final_Confidence = max(Fuzzy_Score, 0.4 * Cosine_Score + 0.6 * Fuzzy_Score)
+
+Rule:
+  If Confidence >= 0.90 (90%) ➔ Auto-Approved & Pushed to Database (status: 'approved')
+  If Confidence <  0.90 (90%) ➔ Routed to Planner Review Queue (status: 'pending')
+</pre>
+
+<div class="callout callout-blue">
+  <div class="callout-title">100% Confidence Test Prompts (Live Demo Ready)</div>
+  <p style="margin:0; font-size:9.5pt;">
+    • <strong>PRJ-01 (MEC-1007)</strong>: <code>"Station-1 mein Booster Pump Alignment complete ho gaya"</code> (Conf: 100% ➔ Auto-Pushed)<br>
+    • <strong>PRJ-01 (PIP-1006)</strong>: <code>"Sector-4C mein Sectional Hydrostatic Pressure Test complete"</code> (Conf: 100% ➔ Auto-Pushed)<br>
+    • <strong>PRJ-02 (MEC-2002)</strong>: <code>"Unit-2 mein Heat Exchanger Bundle Insertion complete ho gaya"</code> (Conf: 100% ➔ Auto-Pushed)<br>
+    • <strong>PRJ-02 (CIV-2001)</strong>: <code>"Unit-2 mein Gas Turbine Generator Foundation Pouring complete"</code> (Conf: 100% ➔ Auto-Pushed)
+  </p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PART 5: 5-MINUTE DEMO SCRIPT -->
+<h2>5. 5-Minute Live Demo Script (Step-by-Step)</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Screen / Action</th>
+      <th>Word-by-Word Speaking Script (Hinglish)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>0:00 - 0:45</strong></td>
+      <td>Login Screen (<code>Login.jsx</code>)</td>
+      <td><em>"Respected judges, mega-infrastructure projects me sabse bada nuksaan reporting lag ki wajah se hota hai. Trench me supervisor Hinglish bolta hai, aur office me manager Primavera P6 chalata hai. In dono ke beech ka bridge hai Infrasutra. Chaliye Lead Planner Arvind Sharma ke account se login karte hain."</em></td>
+    </tr>
+    <tr>
+      <td><strong>0:45 - 1:30</strong></td>
+      <td>Dashboard & SPI Curve</td>
+      <td><em>"Ye hamara Project Control Center hai. Yahan execution progress, Schedule Performance Index (SPI), aur variance alerts live dikh rahe hain. Notice kijiye ki Arvind Sharma ko sirf wahi projects dikh rahe hain jo unhe assigned hain (Projects A, B, aur C)."</em></td>
+    </tr>
+    <tr>
+      <td><strong>1:30 - 2:30</strong></td>
+      <td>Navbar ➔ Project Portfolio ➔ Reassign</td>
+      <td><em>"Ab hum project portfolio kholte hain. Jab hum Project A ko Supervisor 1 se Supervisor 2 ko reassign karte hain, to hamara backend database-level security run karta hai. SQLite me transaction hoti hai, in-app notification generate hoti hai, aur background SMTP email chala jata hai."</em></td>
+    </tr>
+    <tr>
+      <td><strong>2:30 - 3:30</strong></td>
+      <td>Logout ➔ Login as Supervisor 1</td>
+      <td><em>"Ab jab Supervisor 1 login karta hai, to navbar ke bell icon par live alert aata hai ki Project A reassign ho chuka hai. Aur uske dashboard se Project A gayab ho chuka hai. Agar wo URL se direct access karega to HTTP 403 Forbidden aayega."</em></td>
+    </tr>
+    <tr>
+      <td><strong>3:30 - 4:30</strong></td>
+      <td>Field Update Voice Prompt</td>
+      <td><em>"Ab hum real-world Hinglish voice note dalte hain: 'Station-1 mein Booster Pump Alignment complete ho gaya'. Hamara fine-tuned LLaMA-3 LoRA model iska task extract karta hai, aur TF-IDF algorithm isko WBS activity MEC-1007 ke sath 100% confidence pe match karta hai. Aur 90% se upar hone ki wajah se ye bina human intervention seedha database me auto-push ho jata hai!"</em></td>
+    </tr>
+    <tr>
+      <td><strong>4:30 - 5:00</strong></td>
+      <td>Analytics & XGBoost Forecast</td>
+      <td><em>"Last me hamara XGBoost model variance trends ko dekh kar delay forecast karta hai, jisse management ko critical-path delay aane se hafton pehle pata chal jata hai. Thank you, now we are open for questions!"</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- PART 6: TRAP QUESTIONS & BULLETPROOF ANSWERS -->
+<h2>6. Judges Ke Top Trap Questions & Bulletproof Answers</h2>
+
+<h3>Trap 1: "Tumhara project Jira ya Trello se alag kaise hai?"</h3>
+<div class="callout">
+  <strong>Bulletproof Reply:</strong> <em>"Sir, Jira software development ke liye bana hai jisme tickets aur sprint points hote hain. Construction me linear dependencies hoti hain—jab tak civil trench excavation nahi hogi, piping weld nahi ho sakti, aur welding ke baad 24 ghante ka NDT inspection zaroori hota hai. Jira me Hinglish voice understanding, Primavera P6 WBS linking, aur pipeline coordinates nahi hote. Infrasutra heavy engineering ke liye tailor-made hai."</em>
+</div>
+
+<h3>Trap 2: "AI kahan hai? Kya tumne bas regex ya if-else lagaya hai?"</h3>
+<div class="callout">
+  <strong>Bulletproof Reply:</strong> <em>"Nahi sir. Hamare paas dual system hai. Hamne LLaMA-3-8B Instruct model ko 4-bit NF4 quantization me apne RTX 4050 GPU par 40,000 Hinglish construction rows par 8.5 ghante train kiya hai (LoRA adapters ke sath). Iska loss 0.17 par converge hua hai aur token accuracy 95.36% aayi hai. Regex sirf ek offline fallback hai agar kisi client ke server me GPU na ho."</em>
+</div>
+
+<h3>Trap 3: "Agar supervisor assign karte waqt email fail ho gaya to?"</h3>
+<div class="callout">
+  <strong>Bulletproof Reply:</strong> <em>"Sir, hamara email dispatcher modular aur completely non-blocking hai. Database transaction pehle commit hoti hai, in-app notification pehle save hoti hai. Email service <code>try...except</code> ke andar isolated hai. Agar internet down ho ya SMTP block ho jaye, tab bhi supervisor successfully assigned rehta hai aur access mil jati hai."</em>
+</div>
+
+<h3>Trap 4: "Agar do supervisors ek hi second me ek hi activity update karein?"</h3>
+<div class="callout">
+  <strong>Bulletproof Reply:</strong> <em>"Sir, field updates direct activities table ko overwrite nahi karte. Wo pehle <code>pending_updates</code> table me unique auto-incrementing ID aur server timestamp ke sath write hote hain. Isliye SQLite me koi race condition nahi hoti aur har ek worker ka audit trail safe rehta hai."</em>
+</div>
+
+<h3>Trap 5: "Tumne SQLite kyun use kiya? Production me scale kaise karoge?"</h3>
+<div class="callout">
+  <strong>Bulletproof Reply:</strong> <em>"Sir, prototype evaluation me SQLite zero-configuration deployment deta hai jisse judges bina Postgres server install kiye 2 second me run kar sakein. Lekin hamara schema 3rd Normal Form (3NF) relational SQL hai. Production me migrate karne ke liye sirf connection string ko PostgreSQL + PgBouncer me switch karna hoga bina kisi business logic change ke."</em>
+</div>
+
+<!-- PART 7: PERSONAL CONTRIBUTIONS -->
+<h2>7. Personal Contribution Strategy (Kya Bolna Hai?)</h2>
+<p>Jab judge pooche: <strong>"Isme tumne personally kya implement kiya?"</strong>, to confidently ye 3 core areas explain karna:</p>
+<ol>
+  <li><strong>Database-Enforced Access Segregation</strong>: <em>"Maine SQLite me <code>project_assignments</code> relational table aur FastAPI me <code>get_current_user</code> dependency implement ki, jo cryptographic HMAC-SHA256 tokens se ensure karti hai ki unassigned user ko HTTP 403 Forbidden mile aur frontend se manipulation impossible ho jaye."</em></li>
+  <li><strong>Autonomous NLP Matching & Confidence Gating</strong>: <em>"Maine TF-IDF n-gram cosine similarity aur RapidFuzz ka hybrid matching engine banaya jo Hinglish text ko WBS activities se jodhta hai, aur $\ge 90\%$ confidence auto-push threshold enforce karta hai."</em></li>
+  <li><strong>Resilient In-App & Email Notification Engine</strong>: <em>"Maine multi-channel notification engine design kiya jisme in-app database notifications, React navbar bell indicator, aur non-blocking SMTP email delivery integrate ki gayi hai."</em></li>
+</ol>
+
+</body>
+</html>
