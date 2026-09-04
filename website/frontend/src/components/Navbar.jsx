@@ -47,7 +47,9 @@ export default function Navbar() {
         setUnreadCount(data.unread_count || 0);
       }
     } catch (err) {
-      console.warn('Failed to load notifications:', err);
+      const localNotifs = JSON.parse(localStorage.getItem('sih_local_notifications') || '[]');
+      setNotifications(localNotifs);
+      setUnreadCount(localNotifs.filter(n => !n.is_read).length);
     }
   };
 
@@ -64,7 +66,11 @@ export default function Navbar() {
       await authFetch(`${API_BASE}/notifications/${id}/read`, { method: 'PUT' });
       fetchNotifications();
     } catch (err) {
-      console.error('Failed to mark read:', err);
+      const localNotifs = JSON.parse(localStorage.getItem('sih_local_notifications') || '[]');
+      const updated = localNotifs.map(n => n.id === id ? { ...n, is_read: true } : n);
+      localStorage.setItem('sih_local_notifications', JSON.stringify(updated));
+      setNotifications(updated);
+      setUnreadCount(updated.filter(n => !n.is_read).length);
     }
   };
 
@@ -73,7 +79,11 @@ export default function Navbar() {
       await authFetch(`${API_BASE}/notifications/read-all`, { method: 'PUT' });
       fetchNotifications();
     } catch (err) {
-      console.error('Failed to mark all read:', err);
+      const localNotifs = JSON.parse(localStorage.getItem('sih_local_notifications') || '[]');
+      const updated = localNotifs.map(n => ({ ...n, is_read: true }));
+      localStorage.setItem('sih_local_notifications', JSON.stringify(updated));
+      setNotifications(updated);
+      setUnreadCount(0);
     }
   };
 

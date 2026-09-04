@@ -69,7 +69,18 @@ export default function ProjectModal({ isOpen, onClose }) {
         setSupervisors(data.supervisors || []);
       }
     } catch (err) {
-      console.error('Failed to load supervisors:', err);
+      console.warn('Backend unavailable; loading supervisors in Standalone Mode:', err);
+      const registered = JSON.parse(localStorage.getItem('sih_registered_users') || '[]');
+      const clientSupervisors = registered
+        .filter(u => u.roleKey === 'supervisor')
+        .map(u => ({ id: u.id, name: u.name, email: u.email, role: 'supervisor' }));
+
+      const defaultSupervisors = [
+        { id: 1, name: 'Ramesh Kumar (Supervisor 1)', email: 'supervisor1@oilindia.in', role: 'supervisor' },
+        { id: 2, name: 'Kartik Kesarwani (Supervisor 2)', email: 'supervisor2@oilindia.in', role: 'supervisor' },
+        { id: 3, name: 'Sunil Baruah (Supervisor 3 - Unassigned)', email: 'supervisor3@oilindia.in', role: 'supervisor' }
+      ];
+      setSupervisors([...defaultSupervisors, ...clientSupervisors]);
     } finally {
       setLoadingSupervisors(false);
     }
