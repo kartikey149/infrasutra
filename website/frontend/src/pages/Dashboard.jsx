@@ -240,144 +240,87 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main Grid: Live Telegram Voice Feed & Architecture Pipeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Field Supervisor Live Voice Feed */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700">
-                  <Mic className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">Live Field Supervisor Voice Feed</h2>
-                  <p className="text-[11px] text-slate-500">Telegram Bot & Groq Whisper STT Stream</p>
-                </div>
+      {/* Field Supervisor Live Voice Feed */}
+      <div className="bg-white border border-slate-200/90 rounded-3xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700">
+                <Mic className="w-4 h-4" />
               </div>
-              <a 
-                href="https://t.me/splashers_v1_bot"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1.5 hover:bg-indigo-100 transition"
-              >
-                <Bot size={12} /> @splashers_v1_bot ↗
-              </a>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Live Field Supervisor Voice Feed</h2>
+                <p className="text-[11px] text-slate-500">Telegram Bot & Groq Whisper STT Stream</p>
+              </div>
             </div>
-
-            <div className="mt-4">
-              {voiceLogs.length === 0 ? (
-                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <Mic className="w-8 h-8 text-amber-500 mx-auto" />
-                  <p className="text-xs text-slate-700 font-semibold">No live voice reports recorded yet.</p>
-                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-                    Send a voice note to <strong className="text-indigo-600">@splashers_v1_bot</strong> on Telegram. It transcribes in real time and links directly to the schedule.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                  {voiceLogs.map((log) => (
-                    <div
-                      key={log.id || Math.random()}
-                      className="bg-amber-50/50 p-4 rounded-2xl border-l-4 border-amber-500 border border-amber-200/80 space-y-2 hover:border-amber-300 transition"
-                    >
-                      <div className="flex justify-between items-center text-[11px] text-slate-500">
-                        <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                          <HardHat className="w-3.5 h-3.5 text-amber-700" /> {log.supervisor || 'Site Engineer'}
-                        </span>
-                        <span className="font-mono text-slate-500">{log.timestamp}</span>
-                      </div>
-                      <p className="text-xs font-medium text-slate-900 italic bg-white p-2.5 rounded-xl border border-slate-200">
-                        "{log.transcription}"
-                      </p>
-                      {log.aiAnalysis && (
-                        <div className="p-2 rounded-xl bg-slate-900 text-[11px] text-amber-300 font-mono">
-                          {log.aiAnalysis}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <a 
+              href="https://t.me/splashers_v1_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1.5 hover:bg-indigo-100 transition"
+            >
+              <Bot size={12} /> @splashers_v1_bot ↗
+            </a>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-            <span className="text-slate-500">New logs queue directly for approval</span>
-            <Link to="/approval" className="font-bold text-indigo-600 hover:underline flex items-center gap-1">
-              Review Queue &rarr;
-            </Link>
+          <div className="mt-4">
+            {voiceLogs.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <Mic className="w-8 h-8 text-amber-500 mx-auto" />
+                <p className="text-xs text-slate-700 font-semibold">No live voice reports recorded yet.</p>
+                <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                  Send a voice note to <strong className="text-indigo-600">@splashers_v1_bot</strong> on Telegram. It transcribes in real time and links directly to the schedule.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
+                {voiceLogs.map((log) => (
+                  <div
+                    key={log.id || Math.random()}
+                    className="bg-amber-50/50 p-4 rounded-2xl border-l-4 border-amber-500 border border-amber-200/80 space-y-2 hover:border-amber-300 transition"
+                  >
+                    <div className="flex justify-between items-center text-[11px] text-slate-500">
+                      <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                        <HardHat className="w-3.5 h-3.5 text-amber-700" /> {log.supervisor || 'Site Engineer'}
+                      </span>
+                      <span className="font-mono text-slate-500">{log.timestamp}</span>
+                    </div>
+                    <p className="text-xs font-medium text-slate-900 italic bg-white p-2.5 rounded-xl border border-slate-200">
+                      "{log.transcription}"
+                    </p>
+                    {log.aiAnalysis && (
+                      <div className="p-2 rounded-xl bg-slate-900 text-[11px] text-amber-300 font-mono">
+                        {log.aiAnalysis}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* SIH26122 Architecture Flow Card (Replacing irrelevant XGBoost) */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">How SIH26122 Solves the Problem</h2>
-                  <p className="text-[11px] text-slate-500">Intelligent Data Capture & Schedule-Linking Layer</p>
-                </div>
-              </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Active Architecture
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-3 text-xs">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
-                <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 font-bold flex items-center justify-center shrink-0 text-xs">1</span>
-                <div>
-                  <h4 className="font-bold text-slate-900">Unstructured Ingestion (Field)</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Supervisors speak or type updates in Hinglish or English via Telegram or web app.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
-                <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-800 font-bold flex items-center justify-center shrink-0 text-xs">2</span>
-                <div>
-                  <h4 className="font-bold text-slate-900">AI Entity Extraction & Matching</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    LLaMA-3 parses discipline and task. TF-IDF + fuzzy matching pairs it with exact L5/L6 activities.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
-                <span className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-xs">3</span>
-                <div>
-                  <h4 className="font-bold text-slate-900">Human-in-the-Loop Verification</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Planners review confidence scores and approve updates with 1-click to prevent bad data in Primavera.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-            <span className="text-slate-500">198 WBS Activities loaded in SQLite</span>
-            <Link to="/schedule-explorer" className="font-bold text-indigo-600 hover:underline flex items-center gap-1">
-              Explore Schedule &rarr;
-            </Link>
-          </div>
+        <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+          <span className="text-slate-500">New logs queue directly for approval</span>
+          <Link to="/approval" className="font-bold text-indigo-600 hover:underline flex items-center gap-1">
+            Review Queue &rarr;
+          </Link>
         </div>
       </div>
 
       {/* Active WBS Task Status Table */}
       <div className="bg-white border border-slate-200/90 rounded-3xl p-5 space-y-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-slate-700" /> Active Primavera P6 Schedule Status
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-slate-700" /> Active Primavera P6 Schedule Status
+            </h2>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+              {tasks.length} {tasks.length === 1 ? 'Activity' : 'Activities'}
+            </span>
+          </div>
           <Link to="/schedule-explorer" className="text-xs font-bold text-indigo-600 hover:underline">
-            View All 198 Activities &rarr;
+            {tasks.length > 0 ? `View All ${tasks.length} Activities →` : 'Open Schedule Explorer →'}
           </Link>
         </div>
         <div className="overflow-x-auto">
@@ -393,36 +336,50 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {tasks.map((task) => (
-                <tr key={task.id} className="hover:bg-slate-50/70 transition">
-                  <td className="px-3 py-3 font-mono font-bold text-indigo-700">{task.wbs}</td>
-                  <td className="px-3 py-3 font-bold text-slate-900">{task.name}</td>
-                  <td className="px-3 py-3 text-slate-500">{task.plannedProgress}%</td>
-                  <td className="px-3 py-3 font-semibold text-slate-900">{task.actualProgress}%</td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`font-semibold ${
-                        task.varianceDays < 0 ? 'text-rose-600' : 'text-emerald-700'
-                      }`}
-                    >
-                      {task.varianceDays} Days
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        task.status === 'Completed'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : task.status === 'Delayed'
-                          ? 'bg-rose-100 text-rose-800'
-                          : 'bg-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {task.status}
-                    </span>
+              {tasks.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-4 py-10 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center space-y-1.5">
+                      <Clock className="w-7 h-7 text-slate-300" />
+                      <p className="text-xs font-bold text-slate-700">No activities scheduled for this project yet.</p>
+                      <p className="text-[11px] text-slate-400">
+                        Activities will appear here once added in Schedule Explorer or uploaded via XER.
+                      </p>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                tasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-slate-50/70 transition">
+                    <td className="px-3 py-3 font-mono font-bold text-indigo-700">{task.wbs}</td>
+                    <td className="px-3 py-3 font-bold text-slate-900">{task.name}</td>
+                    <td className="px-3 py-3 text-slate-500">{task.plannedProgress}%</td>
+                    <td className="px-3 py-3 font-semibold text-slate-900">{task.actualProgress}%</td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`font-semibold ${
+                          task.varianceDays < 0 ? 'text-rose-600' : 'text-emerald-700'
+                        }`}
+                      >
+                        {task.varianceDays} Days
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          task.status === 'Completed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : task.status === 'Delayed'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-200 text-slate-800'
+                        }`}
+                      >
+                        {task.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
