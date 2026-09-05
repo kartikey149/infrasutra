@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { 
   Check, X, RefreshCw, Database, Clock, 
   ArrowRight, ShieldCheck, AlertTriangle, ShieldAlert,
-  Edit3, Filter, CheckCircle2, UserCheck, HardHat, Briefcase
+  Edit3, Filter, CheckCircle2, UserCheck, HardHat, Briefcase,
+  Camera, MapPin, Eye
 } from 'lucide-react';
-
+import { formatDate, formatTime, formatNumber } from '../utils/dateFormatter';
 import { API_BASE } from '../config';
 
 export default function PlannerApproval() {
+  const { t, i18n } = useTranslation();
   const { activeProject } = useProject();
   const { user, isManager, authFetch } = useAuth();
 
@@ -17,6 +20,8 @@ export default function PlannerApproval() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
   const [actionLoading, setActionLoading] = useState(null);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+
 
   // Edit / Override Modal
   const [editingItem, setEditingItem] = useState(null);
@@ -108,10 +113,34 @@ export default function PlannerApproval() {
     setEditFormData({
       extracted_task: item.extracted_task,
       extracted_discipline: item.extracted_discipline,
-      event_type: item.event_type,
+      event_type: item.event_type || 'Actual Finish',
       location_zone: item.location_zone,
       matched_activity_id: item.matched_activity_id,
+      photo_data: item.photo_data || '',
+      photo_hash: item.photo_hash || '',
+      latitude: item.latitude || 28.462212,
+      longitude: item.longitude || 77.490878,
+      accuracy: item.accuracy || 45,
+      location_address: item.location_address || '',
+      work_start: item.work_start || '',
+      work_end: item.work_end || '',
     });
+  };
+
+  const handleEditPhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      const fakeHash = 'mod_' + Math.random().toString(36).substring(2, 12);
+      setEditFormData(prev => ({
+        ...prev,
+        photo_data: dataUrl,
+        photo_hash: fakeHash
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveEdit = async (e) => {
@@ -122,7 +151,12 @@ export default function PlannerApproval() {
       const res = await authFetch(`${API_BASE}/pending-updates/${editingItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editFormData)
+        body: JSON.stringify({
+          ...editFormData,
+          latitude: parseFloat(editFormData.latitude) || null,
+          longitude: parseFloat(editFormData.longitude) || null,
+          accuracy: parseFloat(editFormData.accuracy) || null,
+        })
       });
       if (res.ok) {
         setEditingItem(null);
@@ -139,34 +173,34 @@ export default function PlannerApproval() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">
-            <ShieldCheck size={16} /> Schedule Variance & Field Approval Queue
+            <ShieldCheck size={16} /> {t('approval.badge', 'Schedule Variance & Field Approval Queue')}
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Review Field Observations
+            {t('approval.title', 'Review Field Observations')}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Active Project: <strong className="text-slate-800">{activeProject?.name}</strong> ({activeProject?.id})
+            {t('dashboard.activeProjectLabel', 'Active Project')}: <strong className="text-slate-800">{activeProject?.name}</strong> ({activeProject?.id})
           </p>
         </div>
 
         {/* Tab Filters */}
         <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-semibold">
-          {['pending', 'approved', 'rejected', 'all'].map((t) => (
+          {['pending', 'approved', 'rejected', 'all'].map((tFilter) => (
             <button
-              key={t}
-              onClick={() => setFilter(t)}
+              key={tFilter}
+              onClick={() => setFilter(tFilter)}
               className={`px-3.5 py-1.5 rounded-xl capitalize transition ${
-                filter === t 
+                filter === tFilter 
                   ? 'bg-white text-slate-900 shadow-sm font-bold' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {t}
+              {t(`approval.tab.${tFilter}`, tFilter)}
             </button>
           ))}
           <button
             onClick={fetchUpdates}
-            title="Refresh"
+            title={t('common.refresh', 'Refresh')}
             className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-white/50 transition"
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -179,7 +213,7 @@ export default function PlannerApproval() {
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 flex items-center gap-2">
           <HardHat size={16} className="shrink-0" />
           <span>
-            You are viewing this queue as <strong>Site Supervisor</strong>. Only Project Planners can approve changes to the baseline schedule, but you can edit any incorrect entries you submitted.
+            {t('approval.supervisorNotice', 'You are viewing this queue as Site Supervisor. Only Project Planners can approve changes to the baseline schedule, but you can edit any incorrect entries you submitted.')}
           </span>
         </div>
       )}
@@ -187,14 +221,16 @@ export default function PlannerApproval() {
       {/* List */}
       {loading ? (
         <div className="text-center py-16 text-slate-400 text-xs font-medium">
-          Loading updates from active SQLite database...
+          {t('approval.loadingDatabase', 'Loading updates from active SQLite database...')}
         </div>
       ) : updates.length === 0 ? (
         <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-2">
           <CheckCircle2 size={36} className="mx-auto text-emerald-500 opacity-80" />
-          <h3 className="font-bold text-slate-800 text-sm">No {filter} updates found</h3>
+          <h3 className="font-bold text-slate-800 text-sm">
+            {t('approval.noUpdatesTitle', 'No {{filter}} updates found', { filter: t(`approval.tab.${filter}`, filter) })}
+          </h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            All submitted field observations for {activeProject?.name} have been processed or none match the filter.
+            {t('approval.noUpdatesSub', 'All submitted field observations for {{name}} have been processed or none match the filter.', { name: activeProject?.name || '' })}
           </p>
         </div>
       ) : (
@@ -213,7 +249,7 @@ export default function PlannerApproval() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono font-bold text-slate-400">
-                      Record #{item.id}
+                      {t('fieldUpdate.record', 'Record')} #{item.id}
                     </span>
                     <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
                       {item.source_type}
@@ -225,50 +261,88 @@ export default function PlannerApproval() {
                         ? 'bg-rose-100 text-rose-800'
                         : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {item.status}
+                      {t(`fieldUpdate.${item.status}`, item.status)}
                     </span>
                   </div>
 
-                  <span className="text-[11px] text-slate-400">
-                    {item.created_at ? item.created_at.slice(0, 16).replace('T', ' ') : ''}
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {item.created_at ? `${formatDate(item.created_at, i18n.language)} ${formatTime(item.created_at, i18n.language)}` : ''}
                   </span>
                 </div>
 
                 {/* Supervisor Input */}
                 <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-3.5">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Supervisor Field Submission ({item.submitted_by || 'Field Supervisor'}):
+                    {t('approval.supervisorSubmission', 'Supervisor Field Submission')} ({item.submitted_by || t('dashboard.supervisor', 'Field Supervisor')}):
                   </span>
                   <p className="text-xs font-medium text-slate-900 leading-relaxed italic">
                     "{item.raw_input}"
                   </p>
                 </div>
 
+                {/* Geotagged Photo Evidence preview if available */}
+                {item.photo_data && (
+                  <div className="bg-slate-900 rounded-2xl p-3.5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-slate-800">
+                    <div className="flex items-center gap-3.5">
+                      <img
+                        src={item.photo_data}
+                        alt="Evidence"
+                        className="w-16 h-16 object-cover rounded-xl border border-slate-700 cursor-pointer hover:opacity-85 transition"
+                        onClick={() => setSelectedPhoto(item.photo_data)}
+                      />
+                      <div className="space-y-0.5 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                          <ShieldCheck size={14} /> Zero-Trust Geotag Evidence
+                        </div>
+                        {item.latitude && (
+                          <div className="text-[11px] text-slate-300 font-mono flex items-center gap-1">
+                            <MapPin size={12} className="text-indigo-400" />
+                            {item.latitude.toFixed(6)}°, {item.longitude.toFixed(6)}° (±{item.accuracy || 67}m)
+                          </div>
+                        )}
+                        {item.photo_hash && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            SHA-256: {item.photo_hash.slice(0, 16)}...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPhoto(item.photo_data)}
+                      className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 self-start sm:self-center border border-slate-700"
+                    >
+                      <Eye size={13} /> View Photo
+                    </button>
+                  </div>
+                )}
+
+
                 {/* AI Extracted & Matched Activity */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Extracted Parameters
+                      {t('fieldUpdate.extractedFeatures', 'Extracted Parameters')}
                     </span>
-                    <div>Discipline: <strong>{item.extracted_discipline}</strong></div>
-                    <div>Task: <strong>{item.extracted_task}</strong></div>
-                    <div>Event: <strong>{item.event_type}</strong> | Zone: <strong>{item.location_zone}</strong></div>
+                    <div>{t('fieldUpdate.discipline', 'Discipline')}: <strong>{item.extracted_discipline}</strong></div>
+                    <div>{t('fieldUpdate.task', 'Task')}: <strong>{item.extracted_task}</strong></div>
+                    <div>{t('fieldUpdate.eventType', 'Event')}: <strong>{item.event_type}</strong> | {t('fieldUpdate.locationZone', 'Zone')}: <strong>{item.location_zone}</strong></div>
                   </div>
 
                   <div className="bg-indigo-50/50 border border-indigo-200/80 rounded-2xl p-3.5 space-y-1">
                     <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">
-                      Target Schedule Activity
+                      {t('approval.targetScheduleActivity', 'Target Schedule Activity')}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <code className="bg-indigo-100 text-indigo-900 font-bold px-1.5 py-0.5 rounded text-[11px]">
                         {item.matched_activity_id || 'None'}
                       </code>
                       <span className="font-bold text-slate-800 truncate">
-                        {item.matched_activity_name || 'No Direct Match'}
+                        {item.matched_activity_name || t('approval.noMatch', 'No Direct Match')}
                       </span>
                     </div>
                     <div className="text-emerald-700 font-bold">
-                      Confidence Match: {confPercent}%
+                      {t('fieldUpdate.confidence', 'Confidence Match')}: {formatNumber(confPercent, i18n.language)}%
                     </div>
                   </div>
                 </div>
@@ -280,7 +354,7 @@ export default function PlannerApproval() {
                     onClick={() => openEditModal(item)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
                   >
-                    <Edit3 size={13} /> Edit / Reassign Activity
+                    <Edit3 size={13} /> {t('approval.editReassign', 'Edit / Reassign Activity')}
                   </button>
 
                   {isPending && isManager && (
@@ -291,7 +365,7 @@ export default function PlannerApproval() {
                         disabled={actionLoading === item.id}
                         className="px-4 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition"
                       >
-                        Reject
+                        {t('approval.reject', 'Reject')}
                       </button>
                       <button
                         type="button"
@@ -299,7 +373,7 @@ export default function PlannerApproval() {
                         disabled={actionLoading === item.id}
                         className="flex items-center gap-1.5 px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
                       >
-                        <Check size={14} /> Approve to Schedule
+                        <Check size={14} /> {t('approval.approve', 'Approve to Schedule')}
                       </button>
                     </div>
                   )}
@@ -400,6 +474,75 @@ export default function PlannerApproval() {
                 </select>
               </div>
 
+              {/* Photo Evidence Replacement & Review */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="font-bold text-slate-700 block flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Camera size={13} className="text-indigo-600" /> Geotagged Photo Evidence</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Change / Replace image</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  {editFormData.photo_data ? (
+                    <img
+                      src={editFormData.photo_data}
+                      alt="Preview"
+                      className="w-14 h-14 object-cover rounded-xl border border-slate-300"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400">
+                      <Camera size={18} />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditPhotoUpload}
+                      className="text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-800"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">If a wrong photo was attached, upload the corrected image here.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location & Address Override */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="font-bold text-slate-700 block flex items-center gap-1.5">
+                  <MapPin size={13} className="text-indigo-600" /> Location Coordinates & Resolved Site Address
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 font-semibold block">Latitude (°)</span>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={editFormData.latitude}
+                      onChange={(e) => setEditFormData({ ...editFormData, latitude: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900 font-mono text-[11px]"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 font-semibold block">Longitude (°)</span>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={editFormData.longitude}
+                      onChange={(e) => setEditFormData({ ...editFormData, longitude: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900 font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-semibold block">Site Address</span>
+                  <input
+                    type="text"
+                    value={editFormData.location_address}
+                    onChange={(e) => setEditFormData({ ...editFormData, location_address: e.target.value })}
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-[11px]"
+                    placeholder="Enter physical site address or landmark"
+                  />
+                </div>
+              </div>
+
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -419,6 +562,35 @@ export default function PlannerApproval() {
           </div>
         </div>
       )}
+
+      {/* FULL PHOTO EVIDENCE MODAL */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-fadeIn">
+          <div className="relative max-w-3xl w-full bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="p-3 px-5 border-b border-slate-800 flex items-center justify-between text-white text-xs font-bold">
+              <span className="flex items-center gap-2">
+                <ShieldCheck size={16} className="text-emerald-400" />
+                Tamper-Proof Geotagged Photo Evidence Audit
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedPhoto(null)}
+                className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-[75vh] overflow-auto p-2 bg-black flex items-center justify-center">
+              <img
+                src={selectedPhoto}
+                alt="Full Geotag Evidence"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
-import { mockApi } from '../services/mockApi';
 import {
   LayoutDashboard,
   Activity,
@@ -13,14 +13,15 @@ import {
   RefreshCw,
   Zap,
   Bot,
-  ArrowRight,
-  ShieldCheck,
-  CheckCircle2
+  ArrowRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { API_BASE } from '../config';
+import DashboardBanner from '../components/DashboardBanner';
+import { formatNumber, formatTime } from '../utils/dateFormatter';
 
 export default function Dashboard() {
+  const { t, i18n } = useTranslation();
   const { user, authFetch } = useAuth();
   const { activeProject, projects } = useProject();
   const [metrics, setMetrics] = useState({
@@ -113,6 +114,8 @@ export default function Dashboard() {
     loadDashboardData();
   }, [activeProject?.id]);
 
+  const currentLang = i18n.language || 'en';
+
   return (
     <div className="p-4 sm:p-6 bg-slate-50 min-h-[calc(100vh-65px)] text-slate-900 space-y-6 pb-24 sm:pb-8 max-w-7xl mx-auto">
       {/* Header Banner */}
@@ -124,14 +127,14 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                Project Control & Schedule-Linking Center
+                {t('dashboard.projectControlCenter', 'Project Control & Schedule-Linking Center')}
               </h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                Oil India PS-122
+                {t('brand.org', 'Oil India')} {t('brand.ps', 'PS-122')}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Active Project: <strong className="text-slate-800">{activeProject?.name || 'Sector 4 Pipeline Alignment'}</strong> &bull; Site: {activeProject?.location || 'Dibrugarh'}
+              {t('dashboard.activeProjectLabel', 'Active Project')}: <strong className="text-slate-800">{activeProject?.name || 'Sector 4 Pipeline Alignment'}</strong> &bull; {t('dashboard.siteLabel', 'Site')}: {activeProject?.location || 'Dibrugarh'}
             </p>
           </div>
         </div>
@@ -142,7 +145,7 @@ export default function Dashboard() {
             to="/approval"
             className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
           >
-            Planner Queue <ArrowRight size={14} />
+            {t('dashboard.plannerQueue', 'Planner Queue')} <ArrowRight size={14} />
           </Link>
           <button
             type="button"
@@ -155,15 +158,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Empty Project Assignment Banner (Scenario 6) */}
+      {/* Amazon-Style Slidable Construction Hero Banner Carousel */}
+      <DashboardBanner />
+
+      {/* Empty Project Assignment Banner */}
       {projects.length === 0 && (
         <div className="p-6 bg-amber-50/80 border border-amber-200 rounded-2xl text-center space-y-2">
           <div className="w-10 h-10 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto">
             <HardHat className="w-5 h-5" />
           </div>
-          <h3 className="text-base font-bold text-amber-900">No Projects Assigned to Your Account</h3>
+          <h3 className="text-base font-bold text-amber-900">
+            {t('dashboard.noProjectsAssigned', 'No Projects Assigned to Your Account')}
+          </h3>
           <p className="text-xs text-amber-700 max-w-md mx-auto">
-            Logged in as <strong>{user?.name}</strong> ({user?.role}). You currently have no active project assignments in the database. Projects will appear here once assigned by a Project Planner.
+            {t('dashboard.noProjectsAssignedDesc', 'Logged in as {{name}} ({{role}}). You currently have no active project assignments in the database. Projects will appear here once assigned by a Project Planner.', { name: user?.name, role: user?.role })}
           </p>
         </div>
       )}
@@ -173,12 +181,16 @@ export default function Dashboard() {
         {/* Progress Execution */}
         <div className="bg-white border border-slate-200/90 p-4 rounded-2xl space-y-3 shadow-sm relative overflow-hidden group hover:border-slate-300 transition">
           <div className="flex justify-between items-center text-xs text-slate-500">
-            <span className="font-semibold">Execution Progress</span>
+            <span className="font-semibold">{t('dashboard.executionProgress', 'Execution Progress')}</span>
             <Activity className="w-4 h-4 text-indigo-600" />
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">{metrics.actualExecution}</span>
-            <span className="text-[11px] text-slate-500">Target: {metrics.plannedCompletion}</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {formatNumber(parseInt(metrics.actualExecution) || 0, currentLang)}%
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {t('dashboard.target', 'Target')}: {formatNumber(parseInt(metrics.plannedCompletion) || 0, currentLang)}%
+            </span>
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200">
             <div
@@ -191,51 +203,55 @@ export default function Dashboard() {
         {/* Schedule Variance */}
         <div className="bg-white border border-slate-200/90 p-4 rounded-2xl space-y-3 shadow-sm relative overflow-hidden group hover:border-slate-300 transition">
           <div className="flex justify-between items-center text-xs text-slate-500">
-            <span className="font-semibold">Schedule Slip</span>
+            <span className="font-semibold">{t('dashboard.scheduleSlip', 'Schedule Slip')}</span>
             <TrendingUp className="w-4 h-4 text-rose-600" />
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl sm:text-3xl font-extrabold text-rose-600">
-              {metrics.scheduleVariance}
+              {metrics.scheduleVariance.startsWith('+') ? '+' : ''}{formatNumber(parseInt(metrics.scheduleVariance) || 0, currentLang)}%
             </span>
             <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-              Behind Baseline
+              {t('dashboard.behindBaseline', 'Behind Baseline')}
             </span>
           </div>
           <p className="text-[11px] text-slate-500">
-            Planned vs actual duration delta
+            {t('dashboard.varianceDelta', 'Planned vs actual duration delta')}
           </p>
         </div>
 
         {/* SPI Index */}
         <div className="bg-white border border-slate-200/90 p-4 rounded-2xl space-y-3 shadow-sm relative overflow-hidden group hover:border-slate-300 transition">
           <div className="flex justify-between items-center text-xs text-slate-500">
-            <span className="font-semibold">Schedule Performance (SPI)</span>
+            <span className="font-semibold">{t('dashboard.schedulePerformance', 'Schedule Performance (SPI)')}</span>
             <Zap className="w-4 h-4 text-amber-600" />
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">{metrics.spiIndex}</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {formatNumber(parseFloat(metrics.spiIndex) || 1.00, currentLang)}
+            </span>
             <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-              0.81 Ratio
+              {formatNumber(0.81, currentLang)} {t('dashboard.ratio', 'Ratio')}
             </span>
           </div>
           <p className="text-[11px] text-slate-500">
-            Execution efficiency (&lt; 1.0 indicates delay)
+            {t('dashboard.spiExplanation', 'Execution efficiency (< 1.0 indicates delay)')}
           </p>
         </div>
 
         {/* Critical Path Delays */}
         <div className="bg-white border border-slate-200/90 p-4 rounded-2xl space-y-3 shadow-sm relative overflow-hidden group hover:border-slate-300 transition">
           <div className="flex justify-between items-center text-xs text-slate-500">
-            <span className="font-semibold">Delayed WBS Activities</span>
+            <span className="font-semibold">{t('dashboard.delayedWbsActivities', 'Delayed WBS Activities')}</span>
             <AlertTriangle className="w-4 h-4 text-rose-600" />
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-extrabold text-rose-600">{metrics.delayedTasksCount}</span>
-            <span className="text-[11px] text-slate-500">Critical Tasks</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-rose-600">
+              {formatNumber(metrics.delayedTasksCount, currentLang)}
+            </span>
+            <span className="text-[11px] text-slate-500">{t('dashboard.criticalTasks', 'Critical Tasks')}</span>
           </div>
           <p className="text-[11px] text-rose-600 font-medium">
-            Requires planner review & re-baselining
+            {t('dashboard.requiresReview', 'Requires planner review & re-baselining')}
           </p>
         </div>
       </div>
@@ -249,8 +265,12 @@ export default function Dashboard() {
                 <Mic className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Live Field Supervisor Voice Feed</h2>
-                <p className="text-[11px] text-slate-500">Telegram Bot & Groq Whisper STT Stream</p>
+                <h2 className="text-sm font-bold text-slate-900">
+                  {t('dashboard.voiceFeedTitle', 'Live Field Supervisor Voice Feed')}
+                </h2>
+                <p className="text-[11px] text-slate-500">
+                  {t('dashboard.voiceFeedSub', 'Telegram Bot & Groq Whisper STT Stream')}
+                </p>
               </div>
             </div>
             <a 
@@ -267,9 +287,11 @@ export default function Dashboard() {
             {voiceLogs.length === 0 ? (
               <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                 <Mic className="w-8 h-8 text-amber-500 mx-auto" />
-                <p className="text-xs text-slate-700 font-semibold">No live voice reports recorded yet.</p>
+                <p className="text-xs text-slate-700 font-semibold">
+                  {t('dashboard.noVoiceLogs', 'No live voice reports recorded yet.')}
+                </p>
                 <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-                  Send a voice note to <strong className="text-indigo-600">@splashers_v1_bot</strong> on Telegram. It transcribes in real time and links directly to the schedule.
+                  {t('dashboard.sendVoiceNoteTo', 'Send a voice note to')} <strong className="text-indigo-600">@splashers_v1_bot</strong> {t('dashboard.voiceNoteDesc', 'on Telegram. It transcribes in real time and links directly to the schedule.')}
                 </p>
               </div>
             ) : (
@@ -281,9 +303,9 @@ export default function Dashboard() {
                   >
                     <div className="flex justify-between items-center text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                        <HardHat className="w-3.5 h-3.5 text-amber-700" /> {log.supervisor || 'Site Engineer'}
+                        <HardHat className="w-3.5 h-3.5 text-amber-700" /> {log.supervisor || t('dashboard.supervisor', 'Site Supervisor')}
                       </span>
-                      <span className="font-mono text-slate-500">{log.timestamp}</span>
+                      <span className="font-mono text-slate-500">{formatTime(log.timestamp, currentLang)}</span>
                     </div>
                     <p className="text-xs font-medium text-slate-900 italic bg-white p-2.5 rounded-xl border border-slate-200">
                       "{log.transcription}"
@@ -301,9 +323,9 @@ export default function Dashboard() {
         </div>
 
         <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-          <span className="text-slate-500">New logs queue directly for approval</span>
+          <span className="text-slate-500">{t('dashboard.newLogsQueue', 'New logs queue directly for approval')}</span>
           <Link to="/approval" className="font-bold text-indigo-600 hover:underline flex items-center gap-1">
-            Review Queue &rarr;
+            {t('dashboard.reviewQueue', 'Review Queue')} &rarr;
           </Link>
         </div>
       </div>
@@ -313,26 +335,28 @@ export default function Dashboard() {
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-slate-700" /> Active Primavera P6 Schedule Status
+              <Clock className="w-4 h-4 text-slate-700" /> {t('dashboard.p6StatusTitle', 'Active Primavera P6 Schedule Status')}
             </h2>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-              {tasks.length} {tasks.length === 1 ? 'Activity' : 'Activities'}
+              {formatNumber(tasks.length, currentLang)} {tasks.length === 1 ? t('dashboard.activity', 'Activity') : t('dashboard.activities', 'Activities')}
             </span>
           </div>
           <Link to="/schedule-explorer" className="text-xs font-bold text-indigo-600 hover:underline">
-            {tasks.length > 0 ? `View All ${tasks.length} Activities →` : 'Open Schedule Explorer →'}
+            {tasks.length > 0 
+              ? t('dashboard.viewAllActivities', 'View All {{count}} Activities →', { count: formatNumber(tasks.length, currentLang) }) 
+              : t('dashboard.openScheduleExplorer', 'Open Schedule Explorer →')}
           </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-700">
             <thead className="bg-slate-100 text-slate-600 uppercase text-[10px] font-bold border-b border-slate-200">
               <tr>
-                <th className="px-3 py-3 rounded-l-xl">WBS Code</th>
-                <th className="px-3 py-3">Task Name</th>
-                <th className="px-3 py-3">Planned</th>
-                <th className="px-3 py-3">Actual Execution</th>
-                <th className="px-3 py-3">Variance</th>
-                <th className="px-3 py-3 rounded-r-xl">Status</th>
+                <th className="px-3 py-3 rounded-l-xl">{t('dashboard.wbsCode', 'WBS Code')}</th>
+                <th className="px-3 py-3">{t('dashboard.taskName', 'Task Name')}</th>
+                <th className="px-3 py-3">{t('dashboard.planned', 'Planned')}</th>
+                <th className="px-3 py-3">{t('dashboard.actualExecution', 'Actual Execution')}</th>
+                <th className="px-3 py-3">{t('dashboard.variance', 'Variance')}</th>
+                <th className="px-3 py-3 rounded-r-xl">{t('dashboard.status', 'Status')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -341,9 +365,9 @@ export default function Dashboard() {
                   <td colSpan="6" className="px-4 py-10 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center space-y-1.5">
                       <Clock className="w-7 h-7 text-slate-300" />
-                      <p className="text-xs font-bold text-slate-700">No activities scheduled for this project yet.</p>
+                      <p className="text-xs font-bold text-slate-700">{t('dashboard.noActivitiesScheduled', 'No activities scheduled for this project yet.')}</p>
                       <p className="text-[11px] text-slate-400">
-                        Activities will appear here once added in Schedule Explorer or uploaded via XER.
+                        {t('dashboard.noActivitiesDesc', 'Activities will appear here once added in Schedule Explorer or uploaded via XER.')}
                       </p>
                     </div>
                   </td>
@@ -353,15 +377,15 @@ export default function Dashboard() {
                   <tr key={task.id} className="hover:bg-slate-50/70 transition">
                     <td className="px-3 py-3 font-mono font-bold text-indigo-700">{task.wbs}</td>
                     <td className="px-3 py-3 font-bold text-slate-900">{task.name}</td>
-                    <td className="px-3 py-3 text-slate-500">{task.plannedProgress}%</td>
-                    <td className="px-3 py-3 font-semibold text-slate-900">{task.actualProgress}%</td>
+                    <td className="px-3 py-3 text-slate-500">{formatNumber(task.plannedProgress, currentLang)}%</td>
+                    <td className="px-3 py-3 font-semibold text-slate-900">{formatNumber(task.actualProgress, currentLang)}%</td>
                     <td className="px-3 py-3">
                       <span
                         className={`font-semibold ${
                           task.varianceDays < 0 ? 'text-rose-600' : 'text-emerald-700'
                         }`}
                       >
-                        {task.varianceDays} Days
+                        {formatNumber(task.varianceDays, currentLang)} {t('dashboard.days', 'Days')}
                       </span>
                     </td>
                     <td className="px-3 py-3">
@@ -374,7 +398,13 @@ export default function Dashboard() {
                             : 'bg-slate-200 text-slate-800'
                         }`}
                       >
-                        {task.status}
+                        {task.status === 'Completed' 
+                          ? t('schedule.completed', 'Completed') 
+                          : task.status === 'Delayed' 
+                          ? t('dashboard.delayed', 'Delayed') 
+                          : task.status === 'In Progress' 
+                          ? t('schedule.inProgress', 'In Progress') 
+                          : t('schedule.notStarted', 'Not Started')}
                       </span>
                     </td>
                   </tr>

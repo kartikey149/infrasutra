@@ -10,6 +10,30 @@ export function ProjectProvider({ children }) {
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Per-user localStorage key — prevents different planners from sharing the same store
+  const userStorageKey = user?.id
+    ? `sih_infrasutra_projects_v2_${user.id}`
+    : 'sih_infrasutra_projects_v2';
+
+  // Role-based filter: planners see only projects they manage, supervisors see only theirs
+  const filterForCurrentUser = (allProjects) => {
+    if (!Array.isArray(allProjects)) return [];
+    if (user?.roleKey === 'supervisor') {
+      return allProjects.filter(p =>
+        p.supervisor_id === user.id ||
+        (user.name && p.supervisor &&
+          p.supervisor.toLowerCase().includes(user.name.toLowerCase()))
+      );
+    }
+    if (user?.roleKey === 'manager' || user?.roleKey === 'planner') {
+      return allProjects.filter(p =>
+        user.name && p.projectManager &&
+        p.projectManager.toLowerCase().includes(user.name.toLowerCase())
+      );
+    }
+    return allProjects;
+  };
+
   // Sync projects from active SQLite DB for the authenticated user only
   const refreshProjects = useCallback(async () => {
     if (!token) {
@@ -27,12 +51,14 @@ export function ProjectProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.projects)) {
-          setProjects(data.projects);
+          // Filter live API results so each planner sees only their own projects
+          const filtered = filterForCurrentUser(data.projects);
+          setProjects(filtered);
           setActiveProjectId((prev) => {
-            if (prev && data.projects.some((p) => p.id === prev)) {
+            if (prev && filtered.some((p) => p.id === prev)) {
               return prev;
             }
-            return data.projects[0]?.id || null;
+            return filtered[0]?.id || null;
           });
         }
       } else {
@@ -42,8 +68,12 @@ export function ProjectProvider({ children }) {
     } catch (err) {
       console.warn('Backend API unreachable; loading Standalone Projects:', err);
       try {
-        const stored = localStorage.getItem('sih_infrasutra_projects_v2');
-        let allProjects = stored ? JSON.parse(stored) : [
+        // Per-user key: each planner has their own isolated project list
+        const stored = localStorage.getItem(userStorageKey);
+        const globalStored = localStorage.getItem('sih_infrasutra_projects_v2');
+
+        // Seed data: the source-of-truth defaults, keyed by projectManager
+        const SEED_PROJECTS = [
           {
             id: 'PRJ-01',
             name: 'Sector 4 Crude Oil Pipeline Expansion',
@@ -109,20 +139,28 @@ export function ProjectProvider({ children }) {
             workersOnSite: 35
           }
         ];
-        localStorage.setItem('sih_infrasutra_projects_v2', JSON.stringify(allProjects));
 
-        // Filter projects if supervisor role
-        if (user?.roleKey === 'supervisor') {
-          const filtered = allProjects.filter(p => 
-            p.supervisor_id === user.id || 
-            (user.name && p.supervisor && p.supervisor.toLowerCase().includes(user.name.toLowerCase()))
-          );
-          setProjects(filtered);
-          setActiveProjectId(filtered[0]?.id || null);
-        } else {
-          setProjects(allProjects);
-          setActiveProjectId(allProjects[0]?.id || null);
-        }
+        // Determine which projects to show:
+        // - Start from per-user stored projects (projects THIS user explicitly created/modified)
+        // - Merge with any seed-data projects that belong to this user (by projectManager name match)
+        // - ALWAYS re-filter: never trust raw stored data which may be contaminated from old sessions
+        const userCreatedProjects = stored ? JSON.parse(stored) : [];
+        const globalProjects = globalStored ? JSON.parse(globalStored) : SEED_PROJECTS;
+
+        // Combine: seed projects that belong to this user + user's own created projects
+        const combinedProjects = [
+          ...filterForCurrentUser(SEED_PROJECTS),
+          ...userCreatedProjects.filter(p =>
+            // Only include user-created projects (not seed IDs) to avoid duplicates
+            !SEED_PROJECTS.some(seed => seed.id === p.id)
+          )
+        ];
+
+        // Save the clean, filtered list back to per-user key
+        localStorage.setItem(userStorageKey, JSON.stringify(combinedProjects));
+
+        setProjects(combinedProjects);
+        setActiveProjectId(combinedProjects[0]?.id || null);
       } catch (fallbackErr) {
         console.error('Failed to load fallback projects:', fallbackErr);
       }
@@ -130,6 +168,15 @@ export function ProjectProvider({ children }) {
       setLoading(false);
     }
   }, [token, user]);
+
+  // When user changes (different planner logs in), clear their per-user cache so
+  // the clean seed+filter logic always runs fresh — eliminates stale cross-planner data.
+  useEffect(() => {
+    if (user?.id) {
+      localStorage.removeItem(userStorageKey);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     refreshProjects();
@@ -163,10 +210,10 @@ export function ProjectProvider({ children }) {
       }
     } catch (err) {
       console.warn('Backend unavailable; updating project in Standalone Mode:', err);
-      // Update in localStorage
-      const stored = JSON.parse(localStorage.getItem('sih_infrasutra_projects_v2') || '[]');
+      // Update in per-user localStorage
+      const stored = JSON.parse(localStorage.getItem(userStorageKey) || '[]');
       const merged = stored.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p);
-      localStorage.setItem('sih_infrasutra_projects_v2', JSON.stringify(merged));
+      localStorage.setItem(userStorageKey, JSON.stringify(merged));
       setProjects(prev => prev.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p));
       return updatedProject;
     }
@@ -194,8 +241,9 @@ export function ProjectProvider({ children }) {
       }
     } catch (err) {
       console.warn('Backend unavailable; creating project in Standalone Mode:', err);
-      const stored = JSON.parse(localStorage.getItem('sih_infrasutra_projects_v2') || '[]');
-      const newId = `PRJ-0${stored.length + 1}`;
+      // Use per-user key; stamp projectManager with logged-in planner's name
+      const stored = JSON.parse(localStorage.getItem(userStorageKey) || '[]');
+      const newId = `PRJ-${String(Date.now()).slice(-5)}`;
       const projectObj = {
         id: newId,
         name: newProj.name || 'New Infrastructure Project',
@@ -208,15 +256,85 @@ export function ProjectProvider({ children }) {
         status: 'Mobilization',
         progress: 0,
         varianceDays: 0,
+        // Always stamp the logged-in planner as creator so filtering works correctly
         projectManager: user?.name || 'Project Planner',
-        safetyOfficer: 'HSE Lead',
-        workersOnSite: 25
+        safetyOfficer: newProj.safetyOfficer || 'HSE Lead',
+        workersOnSite: newProj.workersOnSite || 25,
+        description: newProj.description || '',
+        priority: newProj.priority || 'High',
+        contractType: newProj.contractType || 'EPC (Lump Sum)',
+        clientName: newProj.clientName || 'Oil India Limited',
+        department: newProj.department || '',
+        contractor: newProj.contractor || '',
+        createdBy: user?.id,
       };
       stored.push(projectObj);
-      localStorage.setItem('sih_infrasutra_projects_v2', JSON.stringify(stored));
+      localStorage.setItem(userStorageKey, JSON.stringify(stored));
       setProjects(prev => [...prev, projectObj]);
       setActiveProjectId(newId);
       return projectObj;
+    }
+  };
+
+  const deleteProject = async (id) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/projects/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to delete project');
+      }
+      setProjects(prev => {
+        const remaining = prev.filter(p => p.id !== id);
+        if (activeProjectId === id) {
+          setActiveProjectId(remaining[0]?.id || null);
+        }
+        return remaining;
+      });
+      return data;
+    } catch (err) {
+      console.warn('Backend unavailable; deleting project locally:', err);
+      const stored = JSON.parse(localStorage.getItem(userStorageKey) || '[]');
+      const filtered = stored.filter(p => p.id !== id);
+      localStorage.setItem(userStorageKey, JSON.stringify(filtered));
+      setProjects(prev => {
+        const remaining = prev.filter(p => p.id !== id);
+        if (activeProjectId === id) {
+          setActiveProjectId(remaining[0]?.id || null);
+        }
+        return remaining;
+      });
+      return { success: true };
+    }
+  };
+
+  const abandonProject = async (id) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/projects/${id}/abandon`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to abandon project');
+      }
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'Shut Down' } : p));
+      return data;
+    } catch (err) {
+      console.warn('Backend unavailable; shutting down project locally:', err);
+      const stored = JSON.parse(localStorage.getItem(userStorageKey) || '[]');
+      const updated = stored.map(p => p.id === id ? { ...p, status: 'Shut Down' } : p);
+      localStorage.setItem(userStorageKey, JSON.stringify(updated));
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'Shut Down' } : p));
+      return { success: true };
     }
   };
 
@@ -233,6 +351,8 @@ export function ProjectProvider({ children }) {
         switchProject,
         updateProject,
         addProject,
+        deleteProject,
+        abandonProject,
         refreshProjects,
         loading,
       }}

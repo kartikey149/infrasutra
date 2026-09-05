@@ -7,7 +7,13 @@ import { fileURLToPath } from 'url';
 
 // Import Telegram Bot & shared report store
 import './bot/supervisorBot.js';
-import { liveVoiceReports } from './bot/supervisorBot.js';
+import { liveVoiceReports, translateToEnglish } from './bot/supervisorBot.js';
+
+// Import Mongoose & Application Routes
+import mongoose from 'mongoose';
+import aiRoutes from './routes/aiRoutes.js';
+import chatRoute from './routes/chatRoute.js';
+import supervisorRoutes from './routes/supervisorRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,6 +109,20 @@ app.get('/api/voice-reports', (req, res) => {
   res.json({ success: true, reports: liveVoiceReports || [] });
 });
 
+// Translate Hindi/Hinglish speech to professional English via Gemini 2.5 Flash
+app.post('/api/to-english', async (req, res) => {
+  const { text } = req.body;
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ error: 'Valid text string is required' });
+  }
+  try {
+    const english = await translateToEnglish(text);
+    return res.json({ success: true, original: text, english });
+  } catch (err) {
+    return res.json({ success: true, original: text, english: text });
+  }
+});
+
 // Delay Prediction Endpoint
 app.post('/api/predict-delay', async (req, res) => {
   const { dist, weather, hour } = req.body;
@@ -129,6 +149,29 @@ app.post('/api/predict-delay', async (req, res) => {
   }
 });
 
+// AI Predictive Project Management Chatbot Routes (@google/genai)
+app.use('/api/ai', aiRoutes);
+app.use('/api', chatRoute); // Exposes POST /api/chat
+// Direct alias for POST /api/predictive-chat
+app.post('/api/predictive-chat', (req, res, next) => {
+  req.url = '/predictive-chat';
+  aiRoutes(req, res, next);
+});
+
+// Supervisor Management Routes (Mongoose Schema & Controller with guaranteed [] projects default)
+app.use('/api/supervisors', supervisorRoutes);
+
+// Optional MongoDB Connection
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+if (MONGO_URI) {
+  mongoose
+    .connect(MONGO_URI)
+    .then(() => console.log('🍃 Connected to MongoDB successfully'))
+    .catch((err) => console.warn('⚠️ MongoDB connection warning:', err.message));
+}
+
 app.listen(PORT, () => {
   console.log(`🚀 Express server running on http://localhost:${PORT}`);
+  console.log(`🤖 Infrasutra Gemini Predictive AI active at http://localhost:${PORT}/api/ai/predictive-chat`);
+  console.log(`👷 Supervisor Management active at http://localhost:${PORT}/api/supervisors`);
 });

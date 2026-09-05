@@ -61,6 +61,35 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def ensure_schema_columns():
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(pending_updates)")
+        existing_cols = [col[1] for col in cursor.fetchall()]
+        cols_to_add = [
+            ("photo_data", "TEXT"),
+            ("photo_hash", "TEXT"),
+            ("latitude", "REAL"),
+            ("longitude", "REAL"),
+            ("accuracy", "REAL"),
+            ("location_address", "TEXT"),
+            ("geofence_status", "TEXT"),
+            ("work_start", "TEXT"),
+            ("work_end", "TEXT"),
+            ("logged_at", "TEXT")
+        ]
+        for col_name, col_type in cols_to_add:
+            if col_name not in existing_cols:
+                cursor.execute(f"ALTER TABLE pending_updates ADD COLUMN {col_name} {col_type}")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[DB SCHEMA WARNING] {e}")
+
+ensure_schema_columns()
+
+
 # =============================================================
 # Cryptographic Token & Authorization Layer
 # =============================================================
@@ -119,7 +148,11 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     return dict(user)
 
 def get_user_authorized_projects(conn, user_id: int) -> List[dict]:
-    """Return only the projects assigned to or planned by this user in SQLite."""
+    """Return projects accessible by this user."""
+    user_row = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user_row and str(user_row["role"]).lower() in ["planner", "manager", "admin"]:
+        rows = conn.execute("SELECT * FROM projects ORDER BY id ASC").fetchall()
+        return [dict(r) for r in rows]
     rows = conn.execute("""
         SELECT p.* FROM projects p
         INNER JOIN project_assignments pa ON p.id = pa.project_id
@@ -129,7 +162,10 @@ def get_user_authorized_projects(conn, user_id: int) -> List[dict]:
     return [dict(r) for r in rows]
 
 def check_project_authorization(conn, user_id: int, project_id: str):
-    """Verify that the user has an assignment to this project. If not, return HTTP 403 Forbidden."""
+    """Verify that the user has an assignment to this project, or has planner/manager privileges."""
+    user_row = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user_row and str(user_row["role"]).lower() in ["planner", "manager", "admin"]:
+        return
     row = conn.execute(
         "SELECT 1 FROM project_assignments WHERE user_id = ? AND project_id = ?",
         (user_id, project_id)
@@ -156,6 +192,19 @@ class FieldUpdateRequest(BaseModel):
     source_type: str = "text"
     project_id: str = "PRJ-01"
     submitted_by: str = "Site Supervisor"
+    photo_data: Optional[str] = None
+    photo_hash: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    location_address: Optional[str] = None
+    geofence_status: Optional[str] = None
+    work_start: Optional[str] = None
+    work_end: Optional[str] = None
+    logged_at: Optional[str] = None
+    event_type: Optional[str] = None
+    percent_complete: Optional[int] = None
+
 
 class UpdateSubmissionRequest(BaseModel):
     raw_input: Optional[str] = None
@@ -165,6 +214,14 @@ class UpdateSubmissionRequest(BaseModel):
     location_zone: Optional[str] = None
     matched_activity_id: Optional[str] = None
     status: Optional[str] = None
+    photo_data: Optional[str] = None
+    photo_hash: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    location_address: Optional[str] = None
+    work_start: Optional[str] = None
+    work_end: Optional[str] = None
 
 class ApprovalActionRequest(BaseModel):
     reason: str = ""
@@ -275,12 +332,17 @@ def reload_cache():
 # =============================================================
 # LLM Extraction Logic
 # =============================================================
-SYSTEM_PROMPT = """You are an expert construction project data extractor. Parse the unstructured field input (frequently including Hinglish slang, local site lingo, and mixed English terms) into the strict JSON schema provided.
+SYSTEM_PROMPT = """You are an AI Site Supervisor Log Normalizer for heavy engineering projects. Transcribe and translate any field audio input directly into clear, professional, concise English. Accurately identify engineering metrics (e.g., cubic meters, metric tons, linear meters, manpower count, equipment tags). Never output text in Hindi/Devanagari or regional scripts.
+
+CRITICAL: ALL extracted fields MUST be in standard professional English, regardless of the input language (Hindi, Hinglish, Punjabi, Bengali, Tamil, Bhojpuri, English, etc.).
+- Translate any Hindi, Hinglish, or regional language content into clear, professional English.
+- Keep technical construction/engineering terms in standard English (e.g., pipeline, welding, trenching, excavation, compressor, DCS panel).
+- Preserve zone names (Zone-4, Sector-4A, Unit-2), percentages, cubic meters, metric tons, and linear meters exactly as stated.
 
 Extract the following fields and output ONLY valid JSON:
 {
   "discipline": "one of: Piping, Civil, Electrical, Instrumentation, Mechanical, Fire Protection, Structural Steel",
-  "extracted_task": "the core construction activity described",
+  "extracted_task": "the core construction activity described — MUST be in English",
   "event_type": "one of: Actual Start, Actual Finish",
   "timestamp": "ISO 8601 datetime string",
   "location_zone": "zone or unit identifier"
@@ -696,6 +758,44 @@ def api_update_project(project_id: str, req: ProjectUpdateRequest, current_user:
     conn.close()
     return {"success": True, "project": {**updated, "id": project_id}}
 
+@app.delete("/api/projects/{project_id}")
+def api_delete_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    check_project_authorization(conn, current_user["id"], project_id)
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+    cursor.execute("DELETE FROM schedule_activities WHERE project_id = ?", (project_id,))
+    cursor.execute("DELETE FROM pending_updates WHERE project_id = ?", (project_id,))
+    cursor.execute("DELETE FROM project_assignments WHERE project_id = ?", (project_id,))
+    cursor.execute("DELETE FROM notifications WHERE project_id = ?", (project_id,))
+    cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+    conn.commit()
+    conn.close()
+    reload_cache()
+    return {"success": True, "message": f"Project '{project_id}' and all associated activities/records deleted successfully."}
+
+@app.post("/api/projects/{project_id}/abandon")
+def api_abandon_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    check_project_authorization(conn, current_user["id"], project_id)
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+    cursor.execute("UPDATE projects SET status = 'Shut Down' WHERE id = ?", (project_id,))
+    cursor.execute("UPDATE schedule_activities SET status = 'Suspended' WHERE project_id = ? AND status != 'Completed'", (project_id,))
+    conn.commit()
+    row = cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+    conn.close()
+    reload_cache()
+    return {"success": True, "message": f"Project '{project_id}' has been marked as Shut Down / Abandoned.", "project": dict(row)}
+
 # =============================================================
 # User Authentication Endpoints (SQLite DB + Signed Tokens)
 # =============================================================
@@ -857,14 +957,16 @@ def api_field_update(req: FieldUpdateRequest, current_user: dict = Depends(get_c
     INSERT INTO pending_updates (
         project_id, raw_input, extracted_discipline, extracted_task, event_type, 
         extracted_timestamp, location_zone, matched_activity_id, 
-        matched_activity_name, confidence, source_type, status, created_at, reviewed_at, submitted_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        matched_activity_name, confidence, source_type, status, created_at, reviewed_at, submitted_by,
+        photo_data, photo_hash, latitude, longitude, accuracy, location_address, geofence_status,
+        work_start, work_end, logged_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         req.project_id,
         req.text,
         extracted.get("discipline", "Unknown"),
         extracted.get("extracted_task", req.text),
-        extracted.get("event_type", "Actual Finish"),
+        req.event_type or extracted.get("event_type", "Actual Finish"),
         extracted.get("timestamp", datetime.now().isoformat()),
         extracted.get("location_zone", "Unknown"),
         best_match["activity_id"] if best_match else None,
@@ -874,25 +976,46 @@ def api_field_update(req: FieldUpdateRequest, current_user: dict = Depends(get_c
         initial_status,
         datetime.now().isoformat(),
         reviewed_at,
-        current_user.get("name", req.submitted_by)
+        current_user.get("name", req.submitted_by),
+        req.photo_data,
+        req.photo_hash,
+        req.latitude,
+        req.longitude,
+        req.accuracy,
+        req.location_address,
+        req.geofence_status,
+        req.work_start,
+        req.work_end,
+        req.logged_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     ))
     update_id = cursor.lastrowid
 
     # If confidence >= 90%, immediately execute the schedule update in SQLite!
     if auto_approved and best_match and best_match.get("activity_id"):
         date_str = extracted.get("timestamp", datetime.now().isoformat()).split("T")[0]
-        if extracted.get("event_type") == "Actual Start":
+        eff_event = req.event_type or extracted.get("event_type", "Actual Finish")
+        act_start = req.work_start or date_str
+        act_end = req.work_end or date_str
+        pct_comp = req.percent_complete if req.percent_complete is not None else 50
+        
+        if eff_event == "Actual Start":
             cursor.execute("""
             UPDATE schedule_activities 
-            SET actual_start = ?, status = 'In Progress', percent_complete = CASE WHEN percent_complete < 50 THEN 50 ELSE percent_complete END
-            WHERE activity_id = ?
-            """, (date_str, best_match["activity_id"]))
+            SET actual_start = ?, status = 'In Progress', percent_complete = CASE WHEN percent_complete < ? THEN ? ELSE percent_complete END
+            WHERE activity_id = ? AND project_id = ?
+            """, (act_start, pct_comp, pct_comp, best_match["activity_id"], req.project_id))
+        elif eff_event == "Work in Progress":
+            cursor.execute("""
+            UPDATE schedule_activities 
+            SET actual_start = COALESCE(actual_start, ?), status = 'In Progress', percent_complete = ?
+            WHERE activity_id = ? AND project_id = ?
+            """, (act_start, pct_comp, best_match["activity_id"], req.project_id))
         else:
             cursor.execute("""
             UPDATE schedule_activities 
             SET actual_end = ?, status = 'Completed', percent_complete = 100
-            WHERE activity_id = ?
-            """, (date_str, best_match["activity_id"]))
+            WHERE activity_id = ? AND project_id = ?
+            """, (act_end, best_match["activity_id"], req.project_id))
         conn.commit()
         reload_cache()
 
@@ -1063,6 +1186,14 @@ def api_edit_submission(id: int, req: UpdateSubmissionRequest, current_user: dic
     new_zone = req.location_zone if req.location_zone is not None else cur["location_zone"]
     new_matched_id = req.matched_activity_id if req.matched_activity_id is not None else cur["matched_activity_id"]
     new_status = req.status if req.status is not None else cur["status"]
+    new_photo_data = req.photo_data if req.photo_data is not None else cur.get("photo_data")
+    new_photo_hash = req.photo_hash if req.photo_hash is not None else cur.get("photo_hash")
+    new_lat = req.latitude if req.latitude is not None else cur.get("latitude")
+    new_lng = req.longitude if req.longitude is not None else cur.get("longitude")
+    new_acc = req.accuracy if req.accuracy is not None else cur.get("accuracy")
+    new_addr = req.location_address if req.location_address is not None else cur.get("location_address")
+    new_start = req.work_start if req.work_start is not None else cur.get("work_start")
+    new_end = req.work_end if req.work_end is not None else cur.get("work_end")
 
     # Re-lookup matched activity name if matched ID changed
     matched_name = cur["matched_activity_name"]
@@ -1074,10 +1205,14 @@ def api_edit_submission(id: int, req: UpdateSubmissionRequest, current_user: dic
     cursor.execute("""
     UPDATE pending_updates 
     SET raw_input = ?, extracted_discipline = ?, extracted_task = ?, event_type = ?, 
-        location_zone = ?, matched_activity_id = ?, matched_activity_name = ?, status = ?
+        location_zone = ?, matched_activity_id = ?, matched_activity_name = ?, status = ?,
+        photo_data = ?, photo_hash = ?, latitude = ?, longitude = ?, accuracy = ?, location_address = ?,
+        work_start = ?, work_end = ?
     WHERE id = ?
     """, (
-        new_raw, new_disc, new_task, new_event, new_zone, new_matched_id, matched_name, new_status, id
+        new_raw, new_disc, new_task, new_event, new_zone, new_matched_id, matched_name, new_status,
+        new_photo_data, new_photo_hash, new_lat, new_lng, new_acc, new_addr,
+        new_start, new_end, id
     ))
     conn.commit()
     conn.close()
@@ -1115,18 +1250,26 @@ def api_approve_update(id: int, current_user: dict = Depends(get_current_user)):
     
     if update["matched_activity_id"]:
         date_str = update["extracted_timestamp"].split("T")[0] if update["extracted_timestamp"] else datetime.now().strftime("%Y-%m-%d")
+        act_start = update["work_start"] or date_str
+        act_end = update["work_end"] or date_str
         if update["event_type"] == "Actual Start":
             cursor.execute("""
             UPDATE schedule_activities 
             SET actual_start = ?, status = 'In Progress', percent_complete = CASE WHEN percent_complete < 50 THEN 50 ELSE percent_complete END
             WHERE activity_id = ?
-            """, (date_str, update["matched_activity_id"]))
+            """, (act_start, update["matched_activity_id"]))
+        elif update["event_type"] == "Work in Progress":
+            cursor.execute("""
+            UPDATE schedule_activities 
+            SET actual_start = COALESCE(actual_start, ?), status = 'In Progress', percent_complete = CASE WHEN percent_complete < 50 THEN 50 ELSE percent_complete END
+            WHERE activity_id = ?
+            """, (act_start, update["matched_activity_id"]))
         else:
             cursor.execute("""
             UPDATE schedule_activities 
             SET actual_end = ?, status = 'Completed', percent_complete = 100
             WHERE activity_id = ?
-            """, (date_str, update["matched_activity_id"]))
+            """, (act_end, update["matched_activity_id"]))
         conn.commit()
         reload_cache()
 

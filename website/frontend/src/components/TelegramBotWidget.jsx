@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -17,9 +18,11 @@ import {
   HardHat
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { API_BASE } from '../config';
+import { formatTime } from '../utils/dateFormatter';
+import { API_BASE, EXPRESS_API_BASE } from '../config';
 
 export default function TelegramBotWidget() {
+  const { t, i18n } = useTranslation();
   const { activeProject } = useProject();
   const { user, token, isAuthenticated } = useAuth();
 
@@ -39,7 +42,7 @@ export default function TelegramBotWidget() {
       id: 'welcome',
       sender: 'bot',
       time: 'Just now',
-      text: `👷‍♂️ *Welcome to Oil India Site Supervisor Bot!*\n\nI am listening for field observations on *${activeProject?.name || 'Active Project'}*.\n\nYou can:\n• 🎙️ *Tap the Microphone* to record a voice note in Hinglish or English\n• 💬 *Type a field report* directly into the chat\n\nAI will automatically extract disciplines, tasks, event types, and link to the Primavera SQLite schedule!`
+      text: `👷‍♂️ *Welcome to Site Supervisor Bot!*\n\nListening for field observations on *${activeProject?.name || 'Active Project'}*.\n\nYou can:\n• 🎙️ *Tap Microphone* to record a voice note in any language (Hindi, Hinglish, Punjabi, Bengali, etc.)\n• 💬 *Type a field report* directly into the chat\n\nAI will normalize audio into clean English logs and link to Primavera schedule!`
     }
   ]);
 
@@ -53,6 +56,28 @@ export default function TelegramBotWidget() {
     }
   }, [messages, isOpen]);
 
+  const rawTranscriptRef = useRef('');
+  const translateTimerRef = useRef(null);
+
+  // Helper to translate any raw voice/text stream to clean English
+  const translateSpeechToEnglish = async (rawText) => {
+    if (!rawText || !rawText.trim()) return;
+    try {
+      const res = await fetch(`${EXPRESS_API_BASE}/to-english`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: rawText })
+      });
+      const data = await res.json();
+      if (data.success && data.english) {
+        setInputText(data.english);
+        rawTranscriptRef.current = data.english;
+      }
+    } catch (e) {
+      console.warn('Realtime speech translation error:', e);
+    }
+  };
+
   // Check Web Speech API support
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -61,10 +86,11 @@ export default function TelegramBotWidget() {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = 'hi-IN'; // Hinglish / Hindi & English friendly
+      recognition.lang = 'en-US'; // Primary English speech recognition engine
 
       recognition.onstart = () => {
         setIsRecording(true);
+        rawTranscriptRef.current = '';
       };
 
       recognition.onresult = (event) => {
@@ -72,7 +98,18 @@ export default function TelegramBotWidget() {
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           transcript += event.results[i][0].transcript;
         }
-        setInputText(transcript);
+        rawTranscriptRef.current = transcript;
+
+        // If speech engine outputs Devanagari/Hindi characters, display temporary status indicator while translating
+        if (/[\u0900-\u097F]/.test(transcript)) {
+          setInputText('Listening... (Translating to English...)');
+          if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+          translateTimerRef.current = setTimeout(() => {
+            translateSpeechToEnglish(transcript);
+          }, 350);
+        } else {
+          setInputText(transcript);
+        }
       };
 
       recognition.onerror = (event) => {
@@ -80,8 +117,12 @@ export default function TelegramBotWidget() {
         setIsRecording(false);
       };
 
-      recognition.onend = () => {
+      recognition.onend = async () => {
         setIsRecording(false);
+        const finalRaw = rawTranscriptRef.current;
+        if (finalRaw && finalRaw.trim()) {
+          await translateSpeechToEnglish(finalRaw);
+        }
       };
 
       recognitionRef.current = recognition;
@@ -99,6 +140,7 @@ export default function TelegramBotWidget() {
       setIsRecording(false);
     } else {
       setInputText('');
+      rawTranscriptRef.current = '';
       try {
         recognitionRef.current?.start();
       } catch (err) {
@@ -108,24 +150,69 @@ export default function TelegramBotWidget() {
   };
 
   const handleSendMessage = async (textToSend = null) => {
-    const query = (textToSend || inputText).trim();
+    let query = (textToSend || inputText).trim();
     if (!query || isProcessing) return;
 
-    // Add user message to chat
+    // Handle case where text is placeholder
+    if (query.includes('Translating to English') && rawTranscriptRef.current) {
+      query = rawTranscriptRef.current;
+    }
+
+    // Check if active project is assigned
+    if (!activeProject || !activeProject.id || activeProject.id === 'unassigned' || activeProject.id === 'none') {
+      const userMsgId = Date.now().toString();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: userMsgId,
+          sender: 'user',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          text: query
+        },
+        {
+          id: (Date.now() + 1).toString(),
+          sender: 'bot',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          text: '⚠️ No project is assigned yet. Please select or create an active project to view schedule analytics and field progress.'
+        }
+      ]);
+      setInputText('');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    // Universal Voice & Text Normalization to English
+    try {
+      const hRes = await fetch(`${EXPRESS_API_BASE}/to-english`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: query })
+      });
+      if (hRes.ok) {
+        const hData = await hRes.json();
+        if (hData.english) {
+          query = hData.english;
+        }
+      }
+    } catch (err) {
+      console.warn('English normalization error:', err);
+    }
+
+    // Add user message in clean Roman Hinglish to chat
     const userMsgId = Date.now().toString();
     const newMessages = [
       ...messages,
       {
         id: userMsgId,
         sender: 'user',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatTime(new Date(), i18n.language),
         text: query,
         supervisor: user?.name || 'Site Supervisor'
       }
     ];
     setMessages(newMessages);
     setInputText('');
-    setIsProcessing(true);
 
     try {
       const res = await fetch(`${API_BASE}/field-update`, {
@@ -211,7 +298,7 @@ export default function TelegramBotWidget() {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 p-3.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white rounded-2xl shadow-xl hover:shadow-2xl flex items-center gap-2.5 transition-all duration-200 hover:scale-105 group border border-white/20"
+        className="fixed bottom-6 right-20 sm:right-44 z-40 p-3.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white rounded-2xl shadow-xl hover:shadow-2xl flex items-center gap-2.5 transition-all duration-200 hover:scale-105 group border border-white/20"
         title="Open Telegram Site Supervisor Voice & Chat Bot"
       >
         <div className="relative">

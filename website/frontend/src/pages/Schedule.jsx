@@ -14,8 +14,13 @@ import {
 import { mockApi } from '../services/mockApi';
 import XerImporterModal from '../components/XerImporterModal';
 import TaskDetailModal from '../components/TaskDetailModal';
+import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../config';
 
 export default function Schedule() {
+  const { activeProject } = useProject();
+  const { authFetch } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,8 +30,48 @@ export default function Schedule() {
   const [isImporterOpen, setIsImporterOpen] = useState(false);
   const [selectedTaskDetail, setSelectedTaskDetail] = useState(null);
 
-  const loadTasks = () => {
+  const loadTasks = async () => {
     setLoading(true);
+    if (activeProject?.id) {
+      try {
+        const res = await authFetch(`${API_BASE}/schedule/activities?project_id=${activeProject.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.activities) && data.activities.length > 0) {
+            const mapped = data.activities.map((a) => {
+              const pStart = a.planned_start || '2026-04-01';
+              const pEnd = a.planned_end || '2026-06-30';
+              const aEnd = a.actual_end;
+              let variance = 0;
+              if (aEnd && pEnd) {
+                variance = Math.round((new Date(aEnd) - new Date(pEnd)) / (1000 * 60 * 60 * 24));
+              }
+              return {
+                wbs: a.activity_id,
+                name: a.activity_name,
+                discipline: a.discipline,
+                baselineStart: pStart,
+                baselineEnd: pEnd,
+                actualStart: a.actual_start,
+                actualEnd: a.actual_end,
+                plannedProgress: a.status === 'Completed' ? 100 : a.status === 'In Progress' ? 60 : 20,
+                actualProgress: a.percent_complete || 0,
+                varianceDays: variance,
+                status: a.status === 'Completed' ? 'Completed' : a.status === 'In Progress' ? 'In Progress' : 'On Track',
+                criticalPath: a.discipline === 'Civil' || a.discipline === 'Piping',
+                locationZone: a.location_zone,
+                rawActivity: a
+              };
+            });
+            setTasks(mapped);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch SQLite schedule activities, using fallback:', err);
+      }
+    }
     mockApi.getTasks().then((data) => {
       setTasks(data);
       setLoading(false);
@@ -35,7 +80,7 @@ export default function Schedule() {
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [activeProject?.id]);
 
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =

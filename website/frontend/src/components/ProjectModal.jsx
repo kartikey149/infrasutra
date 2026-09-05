@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config';
+import { formatNumber } from '../utils/dateFormatter';
 import {
   FolderKanban,
   X,
@@ -22,11 +24,14 @@ import {
   Users,
   Briefcase,
   FileText,
+  Trash2,
+  Ban,
 } from 'lucide-react';
 
 export default function ProjectModal({ isOpen, onClose }) {
-  const { projects = [], activeProject, switchProject, updateProject, addProject } = useProject();
-  const { authFetch } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { projects = [], activeProject, switchProject, updateProject, addProject, deleteProject, abandonProject } = useProject();
+  const { user, authFetch } = useAuth();
 
   // All Hooks must remain at top-level before ANY conditional return
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'edit' | 'create'
@@ -310,15 +315,15 @@ export default function ProjectModal({ isOpen, onClose }) {
                         </div>
                         <div className="flex items-center gap-1.5 text-slate-700">
                           <Users size={12} className="text-slate-400 shrink-0" />
-                          <span>{project.workersOnSite || 0} Workers On Site</span>
+                          <span>{formatNumber(project.workersOnSite || 0, i18n.language)} {t('dashboard.workers', 'Workers on Site')}</span>
                         </div>
                       </div>
 
                       {/* Progress Bar */}
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px]">
-                          <span className="text-slate-500 font-semibold">Execution Progress</span>
-                          <span className="font-bold text-slate-900">{project.progress || 0}%</span>
+                          <span className="text-slate-500 font-semibold">{t('dashboard.executionProgress', 'Execution Progress')}</span>
+                          <span className="font-bold text-slate-900">{formatNumber(project.progress || 0, i18n.language)}%</span>
                         </div>
                         <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                           <div
@@ -659,6 +664,66 @@ export default function ProjectModal({ isOpen, onClose }) {
                 </div>
               )}
 
+              {/* Danger Zone: Shutdown & Delete for Planners */}
+              {viewMode === 'edit' && editingProject && ['planner', 'manager', 'admin'].includes(String(user?.role || '').toLowerCase()) && (
+                <div className="p-4 bg-rose-50/70 border border-rose-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-rose-900 text-xs flex items-center gap-1.5">
+                        <AlertTriangle size={14} className="text-rose-600" /> Site Planner Lifecycle Control
+                      </h4>
+                      <p className="text-[11px] text-rose-700 mt-0.5">
+                        If this project is closed or suspended due to shutdown conditions, you can abandon or permanently delete it.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {editingProject.status !== 'Shut Down' && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm(`Are you sure you want to abandon/shut down project "${editingProject.name}"?`)) {
+                              setIsSaving(true);
+                              try {
+                                await abandonProject(editingProject.id);
+                                setSaveSuccess(`Project "${editingProject.name}" marked as Shut Down.`);
+                                setTimeout(() => handleClose(), 1000);
+                              } catch (err) {
+                                setSaveError(err.message || 'Failed to abandon project');
+                              } finally {
+                                setIsSaving(false);
+                              }
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold flex items-center gap-1.5 transition text-[11px]"
+                        >
+                          <Ban size={13} /> Abandon / Shut Down
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`⚠️ DANGER: Permanently delete project "${editingProject.name}" and all its schedule activities & logs? This action cannot be undone.`)) {
+                            setIsSaving(true);
+                            try {
+                              await deleteProject(editingProject.id);
+                              setSaveSuccess(`Project "${editingProject.name}" deleted successfully.`);
+                              setTimeout(() => handleClose(), 1000);
+                            } catch (err) {
+                              setSaveError(err.message || 'Failed to delete project');
+                            } finally {
+                              setIsSaving(false);
+                            }
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 transition text-[11px] shadow-sm"
+                      >
+                        <Trash2 size={13} /> Delete Project
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
                 <button
@@ -691,6 +756,13 @@ function StatusBadge({ status }) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
           <CheckCircle2 size={12} /> Completed
+        </span>
+      );
+    case 'Shut Down':
+    case 'Abandoned':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+          <Ban size={12} /> Shut Down / Abandoned
         </span>
       );
     case 'Delayed':

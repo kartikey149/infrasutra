@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import ProjectModal from './ProjectModal';
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 
 export default function Navbar() {
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout, authFetch } = useAuth();
@@ -88,11 +90,11 @@ export default function Navbar() {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Field Update', path: '/field-update', icon: PenLine },
-    { name: 'Review & Approve', path: '/approval', icon: ClipboardCheck },
-    { name: 'Schedule Explorer', path: '/schedule-explorer', icon: Table2 },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { name: t('nav.dashboard'), path: '/', icon: LayoutDashboard },
+    { name: t('nav.fieldUpdate'), path: '/field-update', icon: PenLine },
+    { name: t('nav.reviewApprove'), path: '/approval', icon: ClipboardCheck },
+    { name: t('nav.scheduleExplorer'), path: '/schedule-explorer', icon: Table2 },
+    { name: t('nav.analytics'), path: '/analytics', icon: BarChart3 },
   ];
 
   const handleLogout = () => {
@@ -108,15 +110,20 @@ export default function Navbar() {
           {/* Brand Logo & Active Project Switcher */}
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2.5 group shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-indigo-600 flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform duration-200">
-                <span className="font-extrabold text-xs text-white tracking-wider">SIH</span>
-              </div>
+              <img 
+                src="/infrasutra_logo.png" 
+                alt="InfraSutra Logo" 
+                className="h-9 w-auto rounded-xl object-contain shadow-sm group-hover:scale-105 transition-transform duration-200 bg-slate-900 px-1.5 py-0.5 border border-slate-700" 
+              />
               <div className="hidden sm:block">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-base font-bold text-slate-900 tracking-tight group-hover:text-amber-600 transition-colors">
-                    InfraSutra
+                  <span className="text-base font-black text-slate-900 tracking-tight group-hover:text-cyan-600 transition-colors">
+                    I.F.S.
                   </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  <span className="text-xs font-bold text-slate-500 tracking-wider">
+                    INFRASUTRA
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200">
                     PS-122
                   </span>
                 </div>

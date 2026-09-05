@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   FileText, 
   FileSpreadsheet, 
@@ -6,8 +7,10 @@ import {
   CheckCircle2, 
   Filter
 } from 'lucide-react';
+import { formatNumber, formatDate } from '../utils/dateFormatter';
 
 export default function ReportExporter() {
+  const { t, i18n } = useTranslation();
   const [reportType, setReportType] = useState('executive');
   const [dateRange, setDateRange] = useState('q2-2026');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -15,18 +18,18 @@ export default function ReportExporter() {
 
   // Mock data for exports
   const reportData = [
-    { wbs: 'WBS-1.1', task: 'Site Survey & Land Acquisition', planned: '100%', actual: '100%', variance: '0 Days', status: 'Completed' },
-    { wbs: 'WBS-1.2', task: 'Site Earthworks & Clearing (Zone A)', planned: '100%', actual: '90%', variance: '-8 Days', status: 'Delayed' },
-    { wbs: 'WBS-2.1', task: 'Pipeline Trenching - Sector 4', planned: '60%', actual: '45%', variance: '-12 Days', status: 'Delayed' },
-    { wbs: 'WBS-2.2', task: 'Pipe Welding & NDT Inspection', planned: '25%', actual: '25%', variance: '0 Days', status: 'On Track' },
-    { wbs: 'WBS-3.1', task: 'Substation Foundation Concrete Pour', planned: '15%', actual: '10%', variance: '-3 Days', status: 'Warning' },
+    { wbs: 'WBS-1.1', task: t('reports.siteSurvey', 'Site Survey & Land Acquisition'), planned: '100%', actual: '100%', variance: `0 ${t('dashboard.days', 'Days')}`, status: t('schedule.completed', 'Completed') },
+    { wbs: 'WBS-1.2', task: t('mitigation.siteEarthworks', 'Site Earthworks & Clearing (Zone A)'), planned: '100%', actual: '90%', variance: `-8 ${t('dashboard.days', 'Days')}`, status: t('analytics.critical', 'Delayed') },
+    { wbs: 'WBS-2.1', task: t('mitigation.pipelineTrenching', 'Pipeline Trenching - Sector 4'), planned: '60%', actual: '45%', variance: `-12 ${t('dashboard.days', 'Days')}`, status: t('analytics.critical', 'Delayed') },
+    { wbs: 'WBS-2.2', task: t('reports.pipeWelding', 'Pipe Welding & NDT Inspection'), planned: '25%', actual: '25%', variance: `0 ${t('dashboard.days', 'Days')}`, status: t('reports.onTrack', 'On Track') },
+    { wbs: 'WBS-3.1', task: t('mitigation.substationFoundation', 'Substation Foundation Concrete Pour'), planned: '15%', actual: '10%', variance: `-3 ${t('dashboard.days', 'Days')}`, status: t('reports.warning', 'Warning') },
   ];
 
   // CSV Generator Function
   const handleExportCSV = () => {
     setIsGenerating(true);
     setTimeout(() => {
-      const headers = ['WBS Code', 'Task Description', 'Planned Completion', 'Actual Completion', 'Schedule Variance', 'Status'];
+      const headers = [t('schedule.activityId', 'WBS Code'), t('reports.taskDesc', 'Task Description'), t('reports.plannedComp', 'Planned Completion'), t('reports.actualComp', 'Actual Completion'), t('reports.schedVariance', 'Schedule Variance'), t('schedule.status', 'Status')];
       const rows = reportData.map((item) => [
         item.wbs,
         `"${item.task}"`,
@@ -70,9 +73,9 @@ export default function ReportExporter() {
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Executive Report & Export Center</h1>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">{t('reports.title', 'Executive Report & Export Center')}</h1>
               <p className="text-xs text-slate-500">
-                Generate Printable Briefs & Raw CSV Spreadsheets for Audits
+                {t('reports.subtitle', 'Generate Printable Briefs & Raw CSV Spreadsheets for Audits')}
               </p>
             </div>
           </div>
@@ -83,14 +86,14 @@ export default function ReportExporter() {
             onClick={handlePrintPDF}
             className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-sm"
           >
-            <Printer size={15} className="text-slate-700" /> Print / Save PDF
+            <Printer size={15} className="text-slate-700" /> {t('reports.printPdf', 'Print / Save PDF')}
           </button>
           <button
             onClick={handleExportCSV}
             disabled={isGenerating}
             className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
           >
-            <FileSpreadsheet size={15} /> {isGenerating ? 'Exporting...' : 'Export Excel (.CSV)'}
+            <FileSpreadsheet size={15} /> {isGenerating ? t('reports.exporting', 'Exporting...') : t('reports.exportExcel', 'Export Excel (.CSV)')}
           </button>
         </div>
       </div>
@@ -98,7 +101,7 @@ export default function ReportExporter() {
       {downloadSuccess && (
         <div className="p-4 bg-emerald-100 border border-emerald-300 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-bold">
           <CheckCircle2 size={18} />
-          <span>Report exported successfully! Check your downloads folder.</span>
+          <span>{t('reports.exportSuccess', 'Report exported successfully! Check your downloads folder.')}</span>
         </div>
       )}
 
@@ -106,26 +109,26 @@ export default function ReportExporter() {
         {/* Left Column: Configuration Controls */}
         <div className="space-y-5 bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm">
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-3">
-            <Filter size={15} className="text-slate-700" /> Report Parameters
+            <Filter size={15} className="text-slate-700" /> {t('reports.parameters', 'Report Parameters')}
           </h3>
 
           {/* Select Report Template */}
           <div>
-            <label className="block text-xs text-slate-700 mb-1.5 font-semibold">Report Type</label>
+            <label className="block text-xs text-slate-700 mb-1.5 font-semibold">{t('reports.reportType', 'Report Type')}</label>
             <select
               value={reportType}
               onChange={(e) => setReportType(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-slate-900"
             >
-              <option value="executive">Executive S-Curve Summary</option>
-              <option value="schedule-variance">Detailed Critical Path & Variance</option>
-              <option value="field-audit">Field Inspection & Geotag Audit</option>
+              <option value="executive">{t('reports.executiveSCurve', 'Executive S-Curve Summary')}</option>
+              <option value="schedule-variance">{t('reports.detailedCriticalPath', 'Detailed Critical Path & Variance')}</option>
+              <option value="field-audit">{t('reports.fieldInspection', 'Field Inspection & Geotag Audit')}</option>
             </select>
           </div>
 
           {/* Select Timeline */}
           <div>
-            <label className="block text-xs text-slate-700 mb-1.5 font-semibold">Time Horizon</label>
+            <label className="block text-xs text-slate-700 mb-1.5 font-semibold">{t('reports.timeHorizon', 'Time Horizon')}</label>
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
@@ -133,15 +136,15 @@ export default function ReportExporter() {
             >
               <option value="q2-2026">Q2 2026 (Apr - Jun)</option>
               <option value="q1-2026">Q1 2026 (Jan - Mar)</option>
-              <option value="full-year">Full Project Lifecycle (2026)</option>
+              <option value="full-year">{t('reports.fullLifecycle', 'Full Project Lifecycle (2026)')}</option>
             </select>
           </div>
 
           {/* Stakeholder Metadata Box */}
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
-            <p className="text-slate-600">Organization: <strong className="text-slate-900">SIH Infra Project</strong></p>
-            <p className="text-slate-600">Project ID: <strong className="text-slate-900">INFRA-2026-PS122</strong></p>
-            <p className="text-slate-600">Data Layer: <strong className="text-amber-800 font-mono">Telegram STT + P6 Engine</strong></p>
+            <p className="text-slate-600">{t('reports.organization', 'Organization')}: <strong className="text-slate-900">SIH Infra Project</strong></p>
+            <p className="text-slate-600">{t('project.title', 'Project ID')}: <strong className="text-slate-900">INFRA-2026-PS122</strong></p>
+            <p className="text-slate-600">{t('reports.dataLayer', 'Data Layer')}: <strong className="text-amber-800 font-mono">Telegram STT + P6 Engine</strong></p>
           </div>
         </div>
 
@@ -151,20 +154,20 @@ export default function ReportExporter() {
           <div className="border-b border-slate-200 pb-4 mb-5 flex justify-between items-start">
             <div>
               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">
-                Official Status Brief &bull; SIH PS-122
+                {t('reports.officialBrief', 'Official Status Brief • SIH PS-122')}
               </span>
               <h3 className="text-lg font-bold text-slate-900 mt-1">
-                {reportType === 'executive' && 'Executive Progress & Schedule Variance Report'}
-                {reportType === 'schedule-variance' && 'Critical Path & WBS Delay Analysis'}
-                {reportType === 'field-audit' && 'Geotagged Field Data Log & Audit Trail'}
+                {reportType === 'executive' && t('reports.executiveReportTitle', 'Executive Progress & Schedule Variance Report')}
+                {reportType === 'schedule-variance' && t('reports.scheduleVarianceTitle', 'Critical Path & WBS Delay Analysis')}
+                {reportType === 'field-audit' && t('reports.fieldAuditTitle', 'Geotagged Field Data Log & Audit Trail')}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Target Period: {dateRange.toUpperCase()} &bull; Generated on September 2, 2026
+                {t('reports.targetPeriod', 'Target Period')}: {dateRange.toUpperCase()} &bull; {t('reports.generatedOn', 'Generated on')} {formatDate('2026-09-02', i18n.language)}
               </p>
             </div>
             <div className="text-right">
               <span className="px-2.5 py-1 bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-[10px] font-bold">
-                CONFIDENTIAL
+                {t('reports.confidential', 'CONFIDENTIAL')}
               </span>
             </div>
           </div>
@@ -172,16 +175,16 @@ export default function ReportExporter() {
           {/* KPI Brief Summary Grid */}
           <div className="grid grid-cols-3 gap-3 mb-6">
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <p className="text-[10px] text-slate-500">Planned Target</p>
-              <p className="text-base font-extrabold text-slate-900">88%</p>
+              <p className="text-[10px] text-slate-500">{t('reports.plannedTarget', 'Planned Target')}</p>
+              <p className="text-base font-extrabold text-slate-900">{formatNumber(88, i18n.language)}%</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <p className="text-[10px] text-slate-500">Actual Executed</p>
-              <p className="text-base font-extrabold text-emerald-700">72%</p>
+              <p className="text-[10px] text-slate-500">{t('reports.actualExecuted', 'Actual Executed')}</p>
+              <p className="text-base font-extrabold text-emerald-700">{formatNumber(72, i18n.language)}%</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <p className="text-[10px] text-slate-500">SPI Index</p>
-              <p className="text-base font-extrabold text-amber-700">0.81</p>
+              <p className="text-[10px] text-slate-500">{t('reports.spiIndex', 'SPI Index')}</p>
+              <p className="text-base font-extrabold text-amber-700">{formatNumber(0.81, i18n.language)}</p>
             </div>
           </div>
 
@@ -191,11 +194,11 @@ export default function ReportExporter() {
               <thead>
                 <tr className="border-b border-slate-200 text-slate-600 font-bold bg-slate-50">
                   <th className="py-2.5 px-3">WBS</th>
-                  <th className="py-2.5 px-3">Task Name</th>
-                  <th className="py-2.5 px-3">Plan</th>
-                  <th className="py-2.5 px-3">Actual</th>
-                  <th className="py-2.5 px-3">Variance</th>
-                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">{t('reports.taskName', 'Task Name')}</th>
+                  <th className="py-2.5 px-3">{t('dashboard.planned', 'Plan')}</th>
+                  <th className="py-2.5 px-3">{t('reports.actual', 'Actual')}</th>
+                  <th className="py-2.5 px-3">{t('chatbot.variance', 'Variance')}</th>
+                  <th className="py-2.5 px-3">{t('schedule.status', 'Status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 text-slate-800">
@@ -208,8 +211,8 @@ export default function ReportExporter() {
                     <td className="py-2.5 px-3 font-mono text-rose-600 font-bold">{row.variance}</td>
                     <td className="py-2.5 px-3">
                       <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
-                        row.status === 'Completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
-                        row.status === 'Delayed' ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-slate-200 text-slate-800'
+                        row.status === t('schedule.completed', 'Completed') ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                        row.status === t('analytics.critical', 'Delayed') ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-slate-200 text-slate-800'
                       }`}>
                         {row.status}
                       </span>
