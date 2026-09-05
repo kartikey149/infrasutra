@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { API_BASE } from '../config';
+import ActivitySuggestions from '../components/ActivitySuggestions';
 
 const PROJECT_SITE_COORDINATES = {
   'PRJ-01': {
@@ -64,6 +65,14 @@ export default function FieldUpdatePage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // Activity suggestion state — powers the Google-search-style suggestion dropdown
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isVoiceInput, setIsVoiceInput] = useState(false);
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const voiceRecognitionRef = useRef(null);
+  const rawVoiceRef = useRef('');
+  const suggestionWrapRef = useRef(null);
 
   // Activity Timing & Execution Metrics
   const [eventType, setEventType] = useState('Actual Finish'); // 'Actual Start' | 'Work in Progress' | 'Actual Finish'
@@ -360,6 +369,59 @@ export default function FieldUpdatePage() {
     } catch (err) {
       console.warn('Failed to load project activities:', err);
     }
+  };
+
+  // ─── Voice Recognition for Observation Notes ────────────────────────────────
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => { setIsVoiceRecording(true); rawVoiceRef.current = ''; };
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        transcript += event.results[i][0].transcript;
+      }
+      rawVoiceRef.current = transcript;
+      setInputText(transcript);
+      setIsVoiceInput(true);
+      setShowSuggestions(true);
+    };
+    recognition.onerror = () => setIsVoiceRecording(false);
+    recognition.onend = () => {
+      setIsVoiceRecording(false);
+      if (rawVoiceRef.current.trim()) {
+        setShowSuggestions(true);
+        setIsVoiceInput(true);
+      }
+    };
+    voiceRecognitionRef.current = recognition;
+  }, []);
+
+  const toggleFieldVoice = () => {
+    if (isVoiceRecording) {
+      voiceRecognitionRef.current?.stop();
+      setIsVoiceRecording(false);
+    } else {
+      setInputText('');
+      rawVoiceRef.current = '';
+      setIsVoiceInput(false);
+      try { voiceRecognitionRef.current?.start(); } catch {}
+    }
+  };
+
+  // When user selects an activity suggestion — fill the textarea with a template
+  const handleActivitySelect = (activity) => {
+    const name = activity.name || activity.activity_name || 'Activity';
+    const actId = activity.id || activity.activity_id || '';
+    const disc = activity.discipline || '';
+    setInputText(`[${actId}] ${name} — ${disc} work ${isVoiceInput ? 'voice observation recorded' : 'observation noted'}.`);
+    setShowSuggestions(false);
+    setIsVoiceInput(false);
   };
 
   const fetchHistory = async () => {
@@ -743,17 +805,58 @@ export default function FieldUpdatePage() {
 
             {/* Field 3: Field Observation Notes */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700">
                   Field 3: Field Observation Notes (Hinglish or English)
                 </label>
+                {/* Voice mic button for observation notes */}
+                <button
+                  type="button"
+                  onClick={toggleFieldVoice}
+                  title={isVoiceRecording ? 'Stop recording' : 'Speak your observation'}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    isVoiceRecording
+                      ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-200'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  {isVoiceRecording
+                    ? <><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Stop Recording</>
+                    : <><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Speak</>
+                  }
+                </button>
+              </div>
+
+              {/* Suggestion dropdown wrapper — relative so popup positions correctly */}
+              <div ref={suggestionWrapRef} className="relative">
                 <textarea
                   rows={3}
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="e.g. Zone-4 mein Pipe Rack Support Fabrication complete ho gaya at 17:30..."
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:border-slate-900 resize-none font-medium leading-relaxed"
+                  onChange={(e) => {
+                    setInputText(e.target.value);
+                    setIsVoiceInput(false);
+                    setShowSuggestions(e.target.value.trim().length >= 3);
+                  }}
+                  onFocus={() => inputText.trim().length >= 3 && setShowSuggestions(true)}
+                  placeholder={isVoiceRecording ? '🎙️ Listening… speak your observation in Hindi or English…' : 'e.g. Zone-4 mein Pipe Rack Support Fabrication complete ho gaya at 17:30…'}
+                  className={`w-full p-4 bg-slate-50 border rounded-2xl text-xs text-slate-900 focus:outline-none resize-none font-medium leading-relaxed transition ${
+                    isVoiceRecording
+                      ? 'border-rose-400 bg-rose-50/40 focus:border-rose-500'
+                      : 'border-slate-200 focus:border-indigo-500'
+                  }`}
                 />
+
+                {/* Google-search-style suggestion dropdown */}
+                {showSuggestions && (
+                  <ActivitySuggestions
+                    query={inputText}
+                    activities={projectActivities}
+                    onSelect={handleActivitySelect}
+                    onDismiss={() => setShowSuggestions(false)}
+                    variant="dropdown"
+                    isVoice={isVoiceInput}
+                  />
+                )}
               </div>
 
               {/* Example prompts */}

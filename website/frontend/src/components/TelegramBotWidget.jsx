@@ -20,6 +20,7 @@ import {
 import { Link } from 'react-router-dom';
 import { formatTime } from '../utils/dateFormatter';
 import { API_BASE, EXPRESS_API_BASE } from '../config';
+import ActivitySuggestions from './ActivitySuggestions';
 
 export default function TelegramBotWidget() {
   const { t, i18n } = useTranslation();
@@ -31,6 +32,12 @@ export default function TelegramBotWidget() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+
+  // Suggestion state — shows Google-search-style activity popup after voice/text
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isVoiceTriggered, setIsVoiceTriggered] = useState(false);
+  const [botActivities, setBotActivities] = useState([]);
+  const inputBarRef = useRef(null);
 
   // If user is not authenticated/logged in, do NOT show the bot widget
   if (!isAuthenticated || !user) {
@@ -48,6 +55,18 @@ export default function TelegramBotWidget() {
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
+
+  // Fetch schedule activities for suggestion matching when the widget opens
+  useEffect(() => {
+    if (isOpen && activeProject?.id && token) {
+      fetch(`${API_BASE}/schedule/activities?project_id=${activeProject.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.json())
+        .then(d => { if (d.success) setBotActivities(d.activities || []); })
+        .catch(() => {});
+    }
+  }, [isOpen, activeProject?.id, token]);
 
   // Auto scroll to bottom of chat
   useEffect(() => {
@@ -72,6 +91,9 @@ export default function TelegramBotWidget() {
       if (data.success && data.english) {
         setInputText(data.english);
         rawTranscriptRef.current = data.english;
+        // ✅ After voice→English conversion, show activity suggestions
+        setIsVoiceTriggered(true);
+        setShowSuggestions(true);
       }
     } catch (e) {
       console.warn('Realtime speech translation error:', e);
@@ -428,7 +450,27 @@ export default function TelegramBotWidget() {
           </div>
 
           {/* Chat Input & Voice Bar */}
-          <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+          <div ref={inputBarRef} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 relative">
+
+            {/* Activity Suggestion Popup — appears above the input bar */}
+            {showSuggestions && (
+              <ActivitySuggestions
+                query={inputText}
+                activities={botActivities}
+                onSelect={(activity) => {
+                  const name = activity.name || activity.activity_name || 'Activity';
+                  const actId = activity.id || activity.activity_id || '';
+                  const disc = activity.discipline || '';
+                  setInputText(`[${actId}] ${name} — ${disc} observation.`);
+                  setShowSuggestions(false);
+                  setIsVoiceTriggered(false);
+                }}
+                onDismiss={() => { setShowSuggestions(false); setIsVoiceTriggered(false); }}
+                variant="popup"
+                isVoice={isVoiceTriggered}
+              />
+            )}
+
             <button
               type="button"
               onClick={toggleVoiceRecording}
@@ -445,7 +487,11 @@ export default function TelegramBotWidget() {
             <input
               type="text"
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => {
+                setInputText(e.target.value);
+                setIsVoiceTriggered(false);
+                setShowSuggestions(e.target.value.trim().length >= 3);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
               placeholder={isRecording ? "Listening to your voice..." : "Type Hinglish or English observation..."}
               className={`flex-1 px-3.5 py-2.5 text-xs bg-slate-50 border rounded-2xl focus:outline-none transition ${
