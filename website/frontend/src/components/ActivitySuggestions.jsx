@@ -262,7 +262,13 @@ export default function ActivitySuggestions({
   // Click outside ? dismiss
   useEffect(() => {
     const handler = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) onDismiss?.();
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        // Do not dismiss if user clicks inside the Telegram bot widget
+        if (e.target?.closest && e.target.closest('[data-telegram-widget="true"]')) {
+          return;
+        }
+        onDismiss?.();
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -272,23 +278,27 @@ export default function ActivitySuggestions({
 
   const isPopup  = variant === "popup";
   const isInline = variant === "inline";
+  const isLeftPanel = variant === "leftPanel";
 
-  // Inline = inside Telegram widget (no wrapper needed — parent provides scroll container)
-  // Popup  = absolute above input (FieldUpdatePage dropdown)
-  // dropdown = default below textarea
+  // leftPanel = dedicated flyout panel on the left of Telegram voice widget
+  // Inline    = inside widget flow
+  // Popup     = absolute above input (FieldUpdatePage dropdown)
+  // dropdown  = default below textarea
 
-  const wrapperClass = isInline
+  const wrapperClass = isLeftPanel
+    ? "w-full h-full bg-white flex flex-col"
+    : isInline
     ? "w-full bg-white"              // parent wraps with border/scroll
     : isPopup
     ? "z-50 w-full bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-fadeIn absolute bottom-full mb-2 left-0 right-0"
     : "z-50 w-full bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-fadeIn mt-2";
 
-  const listMaxH = isInline ? "none" : isPopup ? "270px" : "350px";
+  const listMaxH = (isInline || isLeftPanel) ? "none" : isPopup ? "270px" : "350px";
 
   return (
     <div ref={containerRef} className={wrapperClass}>
       {/* ── Header bar ── */}
-      <div className={`flex items-center justify-between px-3 py-2 border-b border-slate-100 ${
+      <div className={`flex items-center justify-between px-3 py-2.5 border-b border-slate-100 shrink-0 ${
         isVoice
           ? "bg-gradient-to-r from-rose-50 via-orange-50 to-amber-50"
           : "bg-gradient-to-r from-violet-50 via-indigo-50 to-blue-50"
@@ -319,7 +329,7 @@ export default function ActivitySuggestions({
 
       {/* ── Voice recording live indicator ── */}
       {isVoice && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border-b border-rose-200">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border-b border-rose-200 shrink-0">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0 ring-2 ring-rose-300" />
           <span className="text-[10px] text-rose-800 font-semibold truncate">
             🎙️ Voice recognized: <span className="font-bold underline">"{query}"</span> — tap suggestion to auto-fill:
@@ -327,7 +337,7 @@ export default function ActivitySuggestions({
         </div>
       )}
 
-      <div className="overflow-y-auto" style={{ maxHeight: listMaxH }}>
+      <div className={`overflow-y-auto ${isLeftPanel ? "flex-1 min-h-0" : ""}`} style={{ maxHeight: listMaxH }}>
         {/* ── Section 1: AI Generated ── */}
         {generatedItems.length > 0 && (
           <>
@@ -365,7 +375,7 @@ export default function ActivitySuggestions({
       </div>
 
       {/* ── Footer hint ── */}
-      <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[9px] text-slate-400 flex items-center gap-1">
+      <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[9px] text-slate-400 flex items-center gap-1 shrink-0">
         <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px]">up/down</kbd> navigate
         <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px] ml-1">Enter</kbd> select
         <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px] ml-1">Esc</kbd> close

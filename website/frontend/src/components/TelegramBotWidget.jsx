@@ -439,9 +439,51 @@ export default function TelegramBotWidget() {
 
       {/* Telegram Chat Modal Widget */}
       {isOpen && (
-        <div className="fixed bottom-20 right-4 sm:right-6 z-50 w-[92vw] sm:w-[420px] h-[580px] bg-slate-100 rounded-3xl shadow-2xl border border-slate-300/80 flex flex-col animate-fadeIn" style={{clipPath: 'none'}}>
+        <div 
+          data-telegram-widget="true"
+          className="fixed bottom-20 right-4 sm:right-6 z-50 w-[92vw] sm:w-[420px] h-[580px] bg-slate-100 rounded-3xl shadow-2xl border border-slate-300/80 flex flex-col animate-fadeIn" 
+          style={{clipPath: 'none'}}
+        >
+          {/* ── Left-Side Activity Suggestion Panel (Appears on the left side of the voice chat) ── */}
+          {showSuggestions && inputText.trim().length >= 2 && (
+            <div 
+              className="
+                fixed sm:absolute 
+                left-3 sm:left-auto sm:right-full 
+                sm:mr-3 bottom-20 sm:bottom-0 
+                w-[calc(100vw-24px)] sm:w-[350px] md:w-[380px] 
+                h-[520px] sm:h-[580px] max-h-[85vh] 
+                bg-white rounded-3xl shadow-2xl border border-slate-200/90 
+                overflow-hidden flex flex-col z-50 
+                animate-fadeIn
+              "
+            >
+              <ActivitySuggestions
+                query={inputText}
+                activities={botActivities}
+                onSelect={(actOrText) => {
+                  let text;
+                  if (typeof actOrText === 'string') {
+                    text = actOrText;
+                  } else {
+                    const name = actOrText.name || actOrText.activity_name || 'Activity';
+                    const actId = actOrText.id || actOrText.activity_id || '';
+                    const disc = actOrText.discipline || '';
+                    text = `[${actId}] ${name} — ${disc} observation.`;
+                  }
+                  setInputText(text);
+                  setShowSuggestions(false);
+                  setIsVoiceTriggered(false);
+                }}
+                onDismiss={() => { setShowSuggestions(false); setIsVoiceTriggered(false); }}
+                variant="leftPanel"
+                isVoice={isVoiceTriggered}
+              />
+            </div>
+          )}
+
           {/* Telegram Header */}
-          <div className="bg-[#24A1DE] text-white px-4 py-3 flex items-center justify-between shadow-md">
+          <div className="bg-[#24A1DE] text-white px-4 py-3 flex items-center justify-between shadow-md rounded-t-3xl">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-inner">
                 <HardHat size={20} />
@@ -574,34 +616,6 @@ export default function TelegramBotWidget() {
             ))}
           </div>
 
-          {/* ── Activity Suggestion Panel ── */}
-          {/* Rendered INLINE (not absolute) so it's never clipped by overflow-hidden */}
-          {showSuggestions && inputText.trim().length >= 2 && (
-            <div className="shrink-0 border-t border-slate-200 bg-white max-h-[220px] overflow-y-auto">
-              <ActivitySuggestions
-                query={inputText}
-                activities={botActivities}
-                onSelect={(actOrText) => {
-                  let text;
-                  if (typeof actOrText === 'string') {
-                    text = actOrText;
-                  } else {
-                    const name = actOrText.name || actOrText.activity_name || 'Activity';
-                    const actId = actOrText.id || actOrText.activity_id || '';
-                    const disc = actOrText.discipline || '';
-                    text = `[${actId}] ${name} — ${disc} observation.`;
-                  }
-                  setInputText(text);
-                  setShowSuggestions(false);
-                  setIsVoiceTriggered(false);
-                }}
-                onDismiss={() => { setShowSuggestions(false); setIsVoiceTriggered(false); }}
-                variant="inline"
-                isVoice={isVoiceTriggered}
-              />
-            </div>
-          )}
-
           {/* Chat Input & Voice Bar */}
           <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0 rounded-b-3xl">
             <button
@@ -623,9 +637,9 @@ export default function TelegramBotWidget() {
               onChange={(e) => {
                 setInputText(e.target.value);
                 setIsVoiceTriggered(false);
-                setShowSuggestions(e.target.value.trim().length >= 3);
+                setShowSuggestions(e.target.value.trim().length >= 2);
               }}
-              onFocus={() => inputText.trim().length >= 3 && setShowSuggestions(true)}
+              onFocus={() => inputText.trim().length >= 2 && setShowSuggestions(true)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') { setShowSuggestions(false); handleSendMessage(); }
                 if (e.key === 'Escape') setShowSuggestions(false);
