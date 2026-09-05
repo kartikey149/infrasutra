@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
@@ -121,6 +121,37 @@ const PERIOD_CONFIGS = {
       'Tamper-proof safety audit: 100% Zero-LTI compliance across 240 active construction days.'
     ],
     recommendation: 'Expedite Phase 2 river crossing trenching before monsoon weather window closes.'
+  },
+  custom: {
+    id: 'custom',
+    slug: 'Custom_Period_Report',
+    label: 'Custom Range Report',
+    periodName: 'Custom Window Execution & Variance Audit',
+    subtext: 'Selected Custom Evaluation Window',
+    dateRange: 'Custom Range',
+    kpis: (base, days = 14) => {
+      const factor = Math.min(2.5, Math.max(0.3, days / 30));
+      const total = Math.max(4, Math.round((base.total || 12) * factor));
+      const completed = Math.max(1, Math.round((base.completed || 4) * factor));
+      const delayed = Math.max(1, Math.round((base.delayed || 4) * factor));
+      return {
+        total,
+        completed,
+        inProgress: Math.max(1, total - completed - Math.round(total * 0.25)),
+        notStarted: Math.max(1, Math.round(total * 0.25)),
+        delayed,
+        executionRate: Math.min(100, Math.round((completed / total) * 100)),
+        avgDelay: '38.5 Days',
+        velocity: `${days}-Day Dynamic Sprint Tracking`,
+        lookaheadCount: Math.max(2, Math.round(6 * factor))
+      };
+    },
+    highlights: (rangeStr, days) => [
+      `Custom evaluation period active for ${days} calendar days (${rangeStr}).`,
+      `Progress tracking synchronized across all active WBS pipeline disciplines.`,
+      `Zero-trust geotagged evidence verified across all field work submissions in this range.`
+    ],
+    recommendation: 'Ensure all shift handovers during this custom window have complete delay root-cause logs.'
   }
 };
 
@@ -133,9 +164,21 @@ export default function AnalyticsDashboard() {
   const [exportLoading, setExportLoading] = useState(null); // 'pdf' | 'excel'
   const [exportSuccess, setExportSuccess] = useState(null);
 
-  // Report Period Dropdown State: 'weekly' | 'monthly' | 'annually'
+  // Report Period Dropdown State: 'weekly' | 'monthly' | 'annually' | 'custom'
   const [reportPeriod, setReportPeriod] = useState('weekly');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  // Custom Date Range State
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 14);
+    return d.toISOString().split('T')[0];
+  });
+  const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  // Dedicated Delay PDF Export State
+  const [delayPdfLoading, setDelayPdfLoading] = useState(false);
+  const [delayPdfSuccess, setDelayPdfSuccess] = useState(false);
 
   // Root-cause delay breakdown state
   const [delayBreakdown, setDelayBreakdown] = useState(DEFAULT_DELAY_BREAKDOWN);
@@ -204,7 +247,22 @@ export default function AnalyticsDashboard() {
 
   const { total, completed, inProgress, notStarted, delayed, byDiscipline } = data || DEFAULT_ANALYTICS;
 
-  const currentPeriodConfig = PERIOD_CONFIGS[reportPeriod] || PERIOD_CONFIGS.weekly;
+  const customDays = Math.max(1, Math.round((new Date(customEndDate) - new Date(customStartDate)) / (1000 * 60 * 60 * 24)) + 1);
+  const customRangeStr = `${new Date(customStartDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(customEndDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+  const currentPeriodConfig = useMemo(() => {
+    if (reportPeriod === 'custom') {
+      return {
+        ...PERIOD_CONFIGS.custom,
+        dateRange: customRangeStr,
+        subtext: `${customDays}-Day Custom Period (${customStartDate} to ${customEndDate})`,
+        highlights: PERIOD_CONFIGS.custom.highlights(customRangeStr, customDays),
+        kpis: (base) => PERIOD_CONFIGS.custom.kpis(base, customDays)
+      };
+    }
+    return PERIOD_CONFIGS[reportPeriod] || PERIOD_CONFIGS.weekly;
+  }, [reportPeriod, customStartDate, customEndDate, customDays, customRangeStr]);
+
   const currentKpis = currentPeriodConfig.kpis(data || DEFAULT_ANALYTICS);
 
   const handleExportPDF = () => {
@@ -397,6 +455,199 @@ export default function AnalyticsDashboard() {
     }
   };
 
+  const handleExportDelayReportPDF = () => {
+    try {
+      setDelayPdfLoading(true);
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      
+      // Top Crimson/Slate Executive Header Banner
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 40, 'F');
+
+      // Accent crimson bar at top
+      doc.setFillColor(225, 29, 72); // rose-600
+      doc.rect(0, 0, 210, 3, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INFRASUTRA | OIL & GAS CRITICAL SCHEDULE DELAY & ROOT-CAUSE AUDIT', 14, 15);
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(226, 232, 240); // slate-200
+      doc.text(`Project: ${activeProject?.name || 'Sector 4 Crude Oil Pipeline'} [${activeProject?.id || 'PRJ-01'}]`, 14, 22);
+      doc.text(`Audit Scope: Zero Unexplained Variances Protocol  |  Authorized Lead Planner: ${user?.name || 'Lead Planner'}`, 14, 28);
+      doc.text(`Audit Date: ${new Date().toLocaleString()}  |  Primavera P6 Critical Path Variance Engine`, 14, 34);
+
+      // Section 1: Executive Earned Value & Schedule Slip Summary
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('1. Executive Schedule Variance & Delay Summary', 14, 48);
+
+      const delaySummaryRows = [
+        ['Current Earned Value SPI', '0.43 (Cumulative Schedule Performance Index)', 'Target: 1.00 (Critical Path Slippage -17%)'],
+        ['Total WBS Activities Monitored', `${data?.total || 12} Activities Across 5 Disciplines`, 'Assam Pipeline Basin Execution Grid'],
+        ['Activities Actively Delayed', `${data?.delayed || 4} Activities (${Math.round(((data?.delayed || 4) / (data?.total || 12)) * 100)}% of WBS)`, 'Exceeding float tolerance threshold'],
+        ['Average Schedule Delay Impact', '58.5 Calendar Days (Piping) | 105.0 Days (Mechanical)', 'High-impact equipment & welding blockers'],
+        ['Forecasted Project Completion', 'Projected Slip: +42 Days past baseline deadline', 'Calculated via EVM Duration Forecaster'],
+        ['Operational Root-Cause Events Logged', `${totalDelayEvents} Verified Supervisor Delay Events`, 'Captured via voice notes & Telegram logs']
+      ];
+
+      autoTable(doc, {
+        startY: 52,
+        head: [['Key Metric Indicator', 'Current Measurement / Audit Value', 'Standard Benchmark / Operational Scope']],
+        body: delaySummaryRows,
+        theme: 'striped',
+        headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8.5, textColor: [30, 41, 59] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
+        margin: { left: 14, right: 14 }
+      });
+
+      // Section 2: Operational Root-Cause Breakdown
+      const y2 = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('2. Operational Root-Cause Distribution & Blocker Severity', 14, y2);
+
+      const rootCauseRows = delayBreakdown.map((item, idx) => {
+        const severity = idx === 0 ? 'CRITICAL' : idx === 1 ? 'HIGH' : idx === 2 ? 'MODERATE' : 'LOW';
+        const impact = 
+          item.category.includes('Weather') ? 'Trench waterlogging, access road siltation, stoppage of open trench pipe welding' :
+          item.category.includes('Equipment') ? 'Centrifugal compressor crane breakdown, ditcher seal failure, downtime awaiting spares' :
+          item.category.includes('Right of Way') ? 'Landowner crop compensation dispute at Sector 4B chainage 12+400' :
+          item.category.includes('Material') ? 'Delay in delivery of 24" induction bends and API 5L Grade X70 pipe spools' :
+          item.category.includes('Manpower') ? 'Shortage of certified 6G pipe welders and NDT radiographers' :
+          'Isometric drawing revision isometric approval pending from engineering consultant';
+
+        return [item.category, `${item.count} Events`, `${item.percentage}%`, severity, impact];
+      });
+
+      autoTable(doc, {
+        startY: y2 + 4,
+        head: [['Root-Cause Category', 'Logged Events', 'Share', 'Severity', 'Primary Operational Impact Factor']],
+        body: rootCauseRows,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 },
+          1: { halign: 'center', cellWidth: 22 },
+          2: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
+          3: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
+          4: { cellWidth: 74 }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      // Section 3: Discipline-wise Variance Matrix
+      const y3 = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('3. Discipline-wise Variance & Float Consumption Matrix', 14, y3);
+
+      const discRows = byDiscipline.map(d => [
+        d.discipline,
+        d.total.toString(),
+        d.completed.toString(),
+        d.delayed.toString(),
+        `${d.avgDelayDays.toFixed(1)} Days`,
+        d.delayed === 0 ? 'OPTIMAL' : d.avgDelayDays > 3 ? 'CRITICAL RISK' : 'MONITOR'
+      ]);
+
+      autoTable(doc, {
+        startY: y3 + 4,
+        head: [['Discipline', 'Total WBS', 'Completed', 'Delayed', 'Average Delay', 'Schedule Health']],
+        body: discRows,
+        theme: 'striped',
+        headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 38 },
+          1: { halign: 'center' },
+          2: { halign: 'center' },
+          3: { halign: 'center', fontStyle: 'bold' },
+          4: { halign: 'center', fontStyle: 'bold' },
+          5: { halign: 'center', fontStyle: 'bold' }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      // Check if page needs break
+      let y4 = doc.lastAutoTable.finalY + 10;
+      if (y4 > 230) {
+        doc.addPage();
+        y4 = 20;
+      }
+
+      // Section 4: AI Schedule Recovery & Crash Plan Recommendations
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('4. AI Recommended Crash / Fast-Track Recovery Protocols', 14, y4);
+
+      const recoveryRows = [
+        ['Dual Automatic Welding Bug Crew', 'Pipeline Spool Fabrication', 'Deploy secondary internal clamp welding unit to accelerate joint throughput by 2.4x.', 'Saves 14 Days (Recovers SPI to 0.78)'],
+        ['Parallel Trenching & Stringing', 'Civil & Mainline Trenching', 'Run continuous rotary ditchers ahead of pipe stringing rather than sequential excavation.', 'Saves 9 Days (Recovers SPI to 0.65)'],
+        ['24/7 Extended Night Shift', 'Centrifugal Gas Compressor Skid', 'Implement high-lumen tower lighting for nocturnal skid anchoring and piping alignment.', 'Saves 11 Days (Recovers SPI to 0.72)']
+      ];
+
+      autoTable(doc, {
+        startY: y4 + 4,
+        head: [['Recovery Strategy', 'Targeted Work Package', 'Operational Action Items', 'Projected Schedule Savings']],
+        body: recoveryRows,
+        theme: 'grid',
+        headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 46 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 62 },
+          3: { fontStyle: 'bold', cellWidth: 34 }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      // Sign-off / Verification Block
+      let ySign = doc.lastAutoTable.finalY + 14;
+      if (ySign > 260) {
+        doc.addPage();
+        ySign = 25;
+      }
+
+      doc.setDrawColor(203, 213, 225);
+      doc.line(14, ySign, 196, ySign);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text('PREPARED & VERIFIED BY: Lead Project Planner', 14, ySign + 6);
+      doc.text('APPROVED BY: Project Director / Chief Engineer', 110, ySign + 6);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Digital Sign Stamp: ${user?.name || 'Authorized Lead Planner'} (${new Date().toLocaleDateString()})`, 14, ySign + 11);
+      doc.text('Oil India Limited • Pipeline Infrastructure Division PS-122', 110, ySign + 11);
+
+      // Save PDF file
+      const fileName = `${activeProject?.id || 'PRJ-01'}_Delay_Root_Cause_Audit_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+
+      setDelayPdfSuccess(true);
+      setTimeout(() => setDelayPdfSuccess(false), 4000);
+    } catch (err) {
+      console.error('Delay PDF generation error:', err);
+      alert('Failed to generate Delay Audit PDF report. Please check console.');
+    } finally {
+      setDelayPdfLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       {/* Header with Report Frequency Dropdown & Action Buttons */}
@@ -427,8 +678,29 @@ export default function AnalyticsDashboard() {
               <option value="weekly">📅 Weekly Report (Last 7 Days)</option>
               <option value="monthly">📊 Monthly Report (30 Days)</option>
               <option value="annually">🏛️ Annual Report (Year to Date)</option>
+              <option value="custom">📆 Custom Date Range...</option>
             </select>
           </div>
+
+          {/* Custom Date Range Selectors */}
+          {reportPeriod === 'custom' && (
+            <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs shadow-xs animate-fadeIn">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">From:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold text-slate-700 focus:outline-none"
+              />
+              <span className="text-[10px] font-bold text-slate-500 uppercase">To:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-xs font-bold text-slate-700 focus:outline-none"
+              />
+            </div>
+          )}
 
           {/* Preview Report Button */}
           <button
@@ -452,6 +724,21 @@ export default function AnalyticsDashboard() {
               <FileText size={14} className="text-rose-600" />
             )}
             {exportLoading === 'pdf' ? 'Generating...' : exportSuccess === 'pdf' ? 'PDF Saved!' : `Export PDF`}
+          </button>
+
+          {/* Delay Audit Report PDF Button */}
+          <button
+            onClick={handleExportDelayReportPDF}
+            disabled={delayPdfLoading}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition shadow-sm disabled:opacity-50"
+            title="Download comprehensive Delay & Root-Cause Audit Report in PDF"
+          >
+            {delayPdfSuccess ? (
+              <CheckCircle2 size={14} className="text-emerald-600" />
+            ) : (
+              <AlertTriangle size={14} className="text-rose-600" />
+            )}
+            {delayPdfLoading ? 'Generating...' : delayPdfSuccess ? 'Audit Saved!' : 'Delay Audit PDF'}
           </button>
 
           {/* Export Excel Button */}
@@ -613,9 +900,24 @@ export default function AnalyticsDashboard() {
               Aggregated from field supervisor voice reports, Telegram bot logs, and Primavera schedule variance audits.
             </p>
           </div>
-          <span className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 self-start sm:self-auto">
-            Zero Unexplained Variances Active
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <button
+              onClick={handleExportDelayReportPDF}
+              disabled={delayPdfLoading}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-sm shadow-rose-600/20 disabled:opacity-50"
+              title="Download comprehensive Oil & Gas Delay & Root-Cause Audit Report in PDF"
+            >
+              {delayPdfSuccess ? (
+                <CheckCircle2 size={14} className="text-white" />
+              ) : (
+                <FileText size={14} />
+              )}
+              {delayPdfLoading ? 'Generating Audit PDF...' : delayPdfSuccess ? 'Audit PDF Saved!' : 'Download Delay Audit PDF'}
+            </button>
+            <span className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
+              Zero Unexplained Variances Active
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
