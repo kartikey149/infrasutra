@@ -21,6 +21,7 @@ import { Link } from 'react-router-dom';
 import { formatTime } from '../utils/dateFormatter';
 import { API_BASE, EXPRESS_API_BASE } from '../config';
 import ActivitySuggestions from './ActivitySuggestions';
+import { DEFAULT_ACTIVITIES } from '../utils/suggestionEngine';
 
 export default function TelegramBotWidget() {
   const { t, i18n } = useTranslation();
@@ -36,7 +37,7 @@ export default function TelegramBotWidget() {
   // Suggestion state — shows Google-search-style activity popup after voice/text
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isVoiceTriggered, setIsVoiceTriggered] = useState(false);
-  const [botActivities, setBotActivities] = useState([]);
+  const [botActivities, setBotActivities] = useState(DEFAULT_ACTIVITIES);
   const inputBarRef = useRef(null);
 
   // If user is not authenticated/logged in, do NOT show the bot widget
@@ -58,13 +59,25 @@ export default function TelegramBotWidget() {
 
   // Fetch schedule activities for suggestion matching when the widget opens
   useEffect(() => {
-    if (isOpen && activeProject?.id && token) {
-      fetch(`${API_BASE}/schedule/activities?project_id=${activeProject.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(r => r.json())
-        .then(d => { if (d.success) setBotActivities(d.activities || []); })
-        .catch(() => {});
+    if (isOpen) {
+      if (activeProject?.id && token) {
+        fetch(`${API_BASE}/schedule/activities?project_id=${activeProject.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+          .then(r => r.json())
+          .then(d => {
+            if (d.success && Array.isArray(d.activities) && d.activities.length > 0) {
+              setBotActivities(d.activities);
+            } else {
+              setBotActivities(DEFAULT_ACTIVITIES);
+            }
+          })
+          .catch(() => {
+            setBotActivities(DEFAULT_ACTIVITIES);
+          });
+      } else {
+        setBotActivities(DEFAULT_ACTIVITIES);
+      }
     }
   }, [isOpen, activeProject?.id, token]);
 
@@ -91,12 +104,18 @@ export default function TelegramBotWidget() {
       if (data.success && data.english) {
         setInputText(data.english);
         rawTranscriptRef.current = data.english;
-        // ✅ After voice→English conversion, show activity suggestions
+        setIsVoiceTriggered(true);
+        setShowSuggestions(true);
+      } else {
+        setInputText(rawText);
         setIsVoiceTriggered(true);
         setShowSuggestions(true);
       }
     } catch (e) {
-      console.warn('Realtime speech translation error:', e);
+      console.warn('Realtime speech translation error (using raw text fallback):', e);
+      setInputText(rawText);
+      setIsVoiceTriggered(true);
+      setShowSuggestions(true);
     }
   };
 
@@ -108,29 +127,33 @@ export default function TelegramBotWidget() {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = 'en-US'; // Primary English speech recognition engine
+      recognition.lang = 'en-US';
 
       recognition.onstart = () => {
         setIsRecording(true);
         rawTranscriptRef.current = '';
+        setShowSuggestions(false);
+        setIsVoiceTriggered(false);
       };
 
       recognition.onresult = (event) => {
         let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
           transcript += event.results[i][0].transcript;
         }
         rawTranscriptRef.current = transcript;
 
-        // If speech engine outputs Devanagari/Hindi characters, display temporary status indicator while translating
+        setInputText(transcript);
+        if (transcript.trim().length >= 2) {
+          setIsVoiceTriggered(true);
+          setShowSuggestions(true);
+        }
+
         if (/[\u0900-\u097F]/.test(transcript)) {
-          setInputText('Listening... (Translating to English...)');
           if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
           translateTimerRef.current = setTimeout(() => {
             translateSpeechToEnglish(transcript);
           }, 350);
-        } else {
-          setInputText(transcript);
         }
       };
 
@@ -143,7 +166,11 @@ export default function TelegramBotWidget() {
         setIsRecording(false);
         const finalRaw = rawTranscriptRef.current;
         if (finalRaw && finalRaw.trim()) {
-          await translateSpeechToEnglish(finalRaw);
+          setIsVoiceTriggered(true);
+          setShowSuggestions(true);
+          if (/[\u0900-\u097F]/.test(finalRaw)) {
+            await translateSpeechToEnglish(finalRaw);
+          }
         }
       };
 
@@ -334,7 +361,7 @@ export default function TelegramBotWidget() {
 
       {/* Telegram Chat Modal Widget */}
       {isOpen && (
-        <div className="fixed bottom-20 right-4 sm:right-6 z-50 w-[92vw] sm:w-[420px] h-[580px] bg-slate-100 rounded-3xl shadow-2xl border border-slate-300/80 flex flex-col overflow-hidden animate-fadeIn">
+        <div className="fixed bottom-20 right-4 sm:right-6 z-50 w-[92vw] sm:w-[420px] h-[580px] bg-slate-100 rounded-3xl shadow-2xl border border-slate-300/80 flex flex-col animate-fadeIn" style={{clipPath: 'none'}}>
           {/* Telegram Header */}
           <div className="bg-[#24A1DE] text-white px-4 py-3 flex items-center justify-between shadow-md">
             <div className="flex items-center gap-2.5">
@@ -449,28 +476,36 @@ export default function TelegramBotWidget() {
             ))}
           </div>
 
-          {/* Chat Input & Voice Bar */}
-          <div ref={inputBarRef} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 relative">
-
-            {/* Activity Suggestion Popup — appears above the input bar */}
-            {showSuggestions && (
+          {/* ── Activity Suggestion Panel ── */}
+          {/* Rendered INLINE (not absolute) so it's never clipped by overflow-hidden */}
+          {showSuggestions && inputText.trim().length >= 2 && (
+            <div className="shrink-0 border-t border-slate-200 bg-white max-h-[220px] overflow-y-auto">
               <ActivitySuggestions
                 query={inputText}
                 activities={botActivities}
-                onSelect={(activity) => {
-                  const name = activity.name || activity.activity_name || 'Activity';
-                  const actId = activity.id || activity.activity_id || '';
-                  const disc = activity.discipline || '';
-                  setInputText(`[${actId}] ${name} — ${disc} observation.`);
+                onSelect={(actOrText) => {
+                  let text;
+                  if (typeof actOrText === 'string') {
+                    text = actOrText;
+                  } else {
+                    const name = actOrText.name || actOrText.activity_name || 'Activity';
+                    const actId = actOrText.id || actOrText.activity_id || '';
+                    const disc = actOrText.discipline || '';
+                    text = `[${actId}] ${name} — ${disc} observation.`;
+                  }
+                  setInputText(text);
                   setShowSuggestions(false);
                   setIsVoiceTriggered(false);
                 }}
                 onDismiss={() => { setShowSuggestions(false); setIsVoiceTriggered(false); }}
-                variant="popup"
+                variant="inline"
                 isVoice={isVoiceTriggered}
               />
-            )}
+            </div>
+          )}
 
+          {/* Chat Input & Voice Bar */}
+          <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0 rounded-b-3xl">
             <button
               type="button"
               onClick={toggleVoiceRecording}
@@ -492,8 +527,12 @@ export default function TelegramBotWidget() {
                 setIsVoiceTriggered(false);
                 setShowSuggestions(e.target.value.trim().length >= 3);
               }}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder={isRecording ? "Listening to your voice..." : "Type Hinglish or English observation..."}
+              onFocus={() => inputText.trim().length >= 3 && setShowSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { setShowSuggestions(false); handleSendMessage(); }
+                if (e.key === 'Escape') setShowSuggestions(false);
+              }}
+              placeholder={isRecording ? '🎙️ Listening… speak your observation…' : 'Type Hinglish or English observation…'}
               className={`flex-1 px-3.5 py-2.5 text-xs bg-slate-50 border rounded-2xl focus:outline-none transition ${
                 isRecording ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300 focus:border-sky-500'
               }`}
@@ -501,7 +540,7 @@ export default function TelegramBotWidget() {
 
             <button
               type="button"
-              onClick={() => handleSendMessage()}
+              onClick={() => { setShowSuggestions(false); handleSendMessage(); }}
               disabled={isProcessing || !inputText.trim()}
               className="p-2.5 bg-[#24A1DE] hover:bg-[#1E8BC0] disabled:bg-slate-300 text-white rounded-full transition shadow-sm"
               title="Send to AI Linker"

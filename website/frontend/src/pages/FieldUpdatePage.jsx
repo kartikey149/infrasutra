@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router-dom';
 import { API_BASE } from '../config';
 import ActivitySuggestions from '../components/ActivitySuggestions';
+import { DEFAULT_ACTIVITIES } from '../utils/suggestionEngine';
 
 const PROJECT_SITE_COORDINATES = {
   'PRJ-01': {
@@ -351,23 +352,25 @@ export default function FieldUpdatePage() {
     location_zone: '',
     matched_activity_id: '',
   });
-  const [projectActivities, setProjectActivities] = useState([]);
+  const [projectActivities, setProjectActivities] = useState(DEFAULT_ACTIVITIES);
 
-
-  // Fetch activities for manual override dropdown
+  // Fetch activities for manual override dropdown & suggestions
   const fetchActivities = async () => {
     if (!activeProject?.id) {
-      setProjectActivities([]);
+      setProjectActivities(DEFAULT_ACTIVITIES);
       return;
     }
     try {
       const res = await authFetch(`${API_BASE}/schedule/activities?project_id=${activeProject.id}`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.activities) && data.activities.length > 0) {
         setProjectActivities(data.activities);
+      } else {
+        setProjectActivities(DEFAULT_ACTIVITIES);
       }
     } catch (err) {
-      console.warn('Failed to load project activities:', err);
+      console.warn('Failed to load project activities, using fallback schedule:', err);
+      setProjectActivities(DEFAULT_ACTIVITIES);
     }
   };
 
@@ -380,16 +383,23 @@ export default function FieldUpdatePage() {
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
-    recognition.onstart = () => { setIsVoiceRecording(true); rawVoiceRef.current = ''; };
+    recognition.onstart = () => {
+      setIsVoiceRecording(true);
+      rawVoiceRef.current = '';
+      setIsVoiceInput(true);
+      setShowSuggestions(false);
+    };
     recognition.onresult = (event) => {
       let transcript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
+      for (let i = 0; i < event.results.length; ++i) {
         transcript += event.results[i][0].transcript;
       }
       rawVoiceRef.current = transcript;
       setInputText(transcript);
       setIsVoiceInput(true);
-      setShowSuggestions(true);
+      if (transcript.trim().length >= 2) {
+        setShowSuggestions(true);
+      }
     };
     recognition.onerror = () => setIsVoiceRecording(false);
     recognition.onend = () => {
@@ -414,12 +424,16 @@ export default function FieldUpdatePage() {
     }
   };
 
-  // When user selects an activity suggestion — fill the textarea with a template
-  const handleActivitySelect = (activity) => {
-    const name = activity.name || activity.activity_name || 'Activity';
-    const actId = activity.id || activity.activity_id || '';
-    const disc = activity.discipline || '';
-    setInputText(`[${actId}] ${name} — ${disc} work ${isVoiceInput ? 'voice observation recorded' : 'observation noted'}.`);
+  // When user selects an activity suggestion — fill the textarea with a template or text
+  const handleActivitySelect = (actOrText) => {
+    if (typeof actOrText === 'string') {
+      setInputText(actOrText);
+    } else {
+      const name = actOrText?.name || actOrText?.activity_name || 'Activity';
+      const actId = actOrText?.id || actOrText?.activity_id || '';
+      const disc = actOrText?.discipline || '';
+      setInputText(`[${actId}] ${name} — ${disc} work ${isVoiceInput ? 'voice observation recorded' : 'observation noted'}.`);
+    }
     setShowSuggestions(false);
     setIsVoiceInput(false);
   };
@@ -835,9 +849,9 @@ export default function FieldUpdatePage() {
                   onChange={(e) => {
                     setInputText(e.target.value);
                     setIsVoiceInput(false);
-                    setShowSuggestions(e.target.value.trim().length >= 3);
+                    setShowSuggestions(e.target.value.trim().length >= 2);
                   }}
-                  onFocus={() => inputText.trim().length >= 3 && setShowSuggestions(true)}
+                  onFocus={() => inputText.trim().length >= 2 && setShowSuggestions(true)}
                   placeholder={isVoiceRecording ? '🎙️ Listening… speak your observation in Hindi or English…' : 'e.g. Zone-4 mein Pipe Rack Support Fabrication complete ho gaya at 17:30…'}
                   className={`w-full p-4 bg-slate-50 border rounded-2xl text-xs text-slate-900 focus:outline-none resize-none font-medium leading-relaxed transition ${
                     isVoiceRecording

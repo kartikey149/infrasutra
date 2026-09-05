@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Infrasutra Generative Suggestion Engine
  * Works 100% client-side. Zero API calls. Zero latency.
  */
@@ -182,19 +182,19 @@ const INSTANT_COMPLETIONS = [
   { trigger: /^zone/i, completions: ['Zone-4 mein pipe rack fabrication complete at 17:30', 'Zone-4 mein cable tray installation 80% done', 'Zone-4 mein concrete pour for equipment pad complete'] },
   { trigger: /^sector/i, completions: ['Sector-4A mein mainline pipe erection complete', 'Sector-4B mein excavation 65% progress today', 'Sector-4B mein Mainline Trenching excavation complete'] },
   { trigger: /^unit/i, completions: ['Unit-2 mein heat exchanger bundle insertion complete', 'Unit-2 mein DCS panel wiring 85% done', 'Unit-3 mein compressor skid erection started'] },
-  { trigger: /^pipe/i, completions: ['Pipe rack fabrication complete at Zone-4 at 17:30', 'Pipe spool welding 85% complete � 12 joints done today', 'Pipeline hydrostatic test passed � 150% design pressure hold'] },
-  { trigger: /^weld/i, completions: ['Welding work 75% complete � 28 of 37 joints done', 'Weld joint RT (radiography) passed � zero defects found', 'Welding of tie-in joint P-47 complete at 16:00'] },
-  { trigger: /^concret/i, completions: ['Concrete pouring for equipment pad complete at 14:30', 'Concrete M25 � slump test 90mm, cube samples collected', 'Concrete curing in progress � 3rd day water curing done'] },
-  { trigger: /^excavat/i, completions: ['Excavation 80% complete � RL -1.8m achieved at Zone-4', 'Excavation of trench for 24" pipeline Sector-4B done', 'Excavation complete � shoring & dewatering in place'] },
-  { trigger: /^cable/i, completions: ['Cable laying 300m complete � megger test passed', 'Cable tray installation 70% done at Zone-3', 'Cable termination at MCC panel 90% complete'] },
-  { trigger: /^compressor/i, completions: ['Compressor skid erection complete � grouting in progress', 'Compressor coupling alignment � within 0.05mm tolerance', 'Compressor pre-commission checklist 80% complete'] },
-  { trigger: /^test|^hydro/i, completions: ['Hydrostatic pressure test passed � hold & pass, zero leaks', 'Testing of gas detector calibration done � all passed', 'Test pack PT-23 closed � ready for pre-commissioning'] },
-  { trigger: /^safety|^hse|^toolbox/i, completions: ['Safety toolbox talk conducted � 45 workers attended', 'Safety inspection done � zero near-miss today', 'Safety barricading complete for excavation at Zone-4'] },
-  { trigger: /^valve/i, completions: ['Valve installation and hydro test complete at Zone-4', 'Valve CV-105 stroke test done � 100% travel verified', 'Valve alignment & bolt torquing complete � leak test pass'] },
-  { trigger: /^foundation/i, completions: ['Foundation concrete pouring complete � M30 grade', 'Foundation bolt setting & grouting done for compressor skid', 'Foundation excavation & PCC complete � ready for rebar'] },
-  { trigger: /^commission/i, completions: ['Commissioning punch list closure 80% complete', 'Commissioning nitrogen purge complete � pipeline clean', 'Commissioning team mobilized � pre-comm activities started'] },
+  { trigger: /^pipe/i, completions: ['Pipe rack fabrication complete at Zone-4 at 17:30', 'Pipe spool welding 85% complete - 12 joints done today', 'Pipeline hydrostatic test passed - 150% design pressure hold'] },
+  { trigger: /^weld/i, completions: ['Welding work 75% complete - 28 of 37 joints done', 'Weld joint RT (radiography) passed - zero defects found', 'Welding of tie-in joint P-47 complete at 16:00'] },
+  { trigger: /^concret/i, completions: ['Concrete pouring for equipment pad complete at 14:30', 'Concrete M25 - slump test 90mm, cube samples collected', 'Concrete curing in progress - 3rd day water curing done'] },
+  { trigger: /^excavat/i, completions: ['Excavation 80% complete - RL -1.8m achieved at Zone-4', 'Excavation of trench for 24" pipeline Sector-4B done', 'Excavation complete - shoring & dewatering in place'] },
+  { trigger: /^cable/i, completions: ['Cable laying 300m complete - megger test passed', 'Cable tray installation 70% done at Zone-3', 'Cable termination at MCC panel 90% complete'] },
+  { trigger: /^compressor/i, completions: ['Compressor skid erection complete - grouting in progress', 'Compressor coupling alignment - within 0.05mm tolerance', 'Compressor pre-commission checklist 80% complete'] },
+  { trigger: /^test|^hydro/i, completions: ['Hydrostatic pressure test passed - hold & pass, zero leaks', 'Testing of gas detector calibration done - all passed', 'Test pack PT-23 closed - ready for pre-commissioning'] },
+  { trigger: /^safety|^hse|^toolbox/i, completions: ['Safety toolbox talk conducted - 45 workers attended', 'Safety inspection done - zero near-miss today', 'Safety barricading complete for excavation at Zone-4'] },
+  { trigger: /^valve/i, completions: ['Valve installation and hydro test complete at Zone-4', 'Valve CV-105 stroke test done - 100% travel verified', 'Valve alignment & bolt torquing complete - leak test pass'] },
+  { trigger: /^foundation/i, completions: ['Foundation concrete pouring complete - M30 grade', 'Foundation bolt setting & grouting done for compressor skid', 'Foundation excavation & PCC complete - ready for rebar'] },
+  { trigger: /^commission/i, completions: ['Commissioning punch list closure 80% complete', 'Commissioning nitrogen purge complete - pipeline clean', 'Commissioning team mobilized - pre-comm activities started'] },
   { trigger: /mein/i, completions: ['Zone-4 mein pipe rack support fabrication complete ho gaya', 'Sector-4A mein concrete pouring start hua at 10:00', 'Zone-4 mein cable tray erection 75% complete ho gaya'] },
-  { trigger: /^progress|^update/i, completions: ['Progress update: Zone-4 piping 78% complete today', 'Progress meeting held � schedule on track, no delay', 'Progress of mainline pipeline: 45 of 60 spools erected'] },
+  { trigger: /^progress|^update/i, completions: ['Progress update: Zone-4 piping 78% complete today', 'Progress meeting held - schedule on track, no delay', 'Progress of mainline pipeline: 45 of 60 spools erected'] },
   { trigger: /^aaj|^today/i, completions: ['Aaj Zone-4 mein pipe spool erection complete hua', 'Today mainline welding 3 joints complete at Sector-4A', 'Aaj safety toolbox talk & daily briefing conducted for 40 workers'] },
 ];
 
@@ -209,3 +209,24 @@ export function getInstantCompletions(query) {
   }
   return results.slice(0, 3);
 }
+
+// ─── Default Schedule Activities (Offline & Live Fallback) ─────────────────────
+export const DEFAULT_ACTIVITIES = [
+  { id: 'PIP-1001', activity_id: 'PIP-1001', name: 'Erect Line 24-XX Mainline Pipe', activity_name: 'Erect Line 24-XX Mainline Pipe', discipline: 'Piping', location_zone: 'Unit-104', progress: 40, critical: true },
+  { id: 'PIP-1002', activity_id: 'PIP-1002', name: 'Erect Line 24-XX - Part 2', activity_name: 'Erect Line 24-XX - Part 2', discipline: 'Piping', location_zone: 'Zone-5', progress: 75, critical: false },
+  { id: 'PIP-1004', activity_id: 'PIP-1004', name: 'Weld Line 24-XX Joints', activity_name: 'Weld Line 24-XX Joints', discipline: 'Piping', location_zone: 'Unit-100', progress: 80, critical: true },
+  { id: 'PIP-1007', activity_id: 'PIP-1007', name: 'Pressure Test Line 24-XX', activity_name: 'Pressure Test Line 24-XX', discipline: 'Piping', location_zone: 'Zone-11', progress: 100, critical: false },
+  { id: 'PIP-1010', activity_id: 'PIP-1010', name: 'Install 12-inch Gate Valve', activity_name: 'Install 12-inch Gate Valve', discipline: 'Piping', location_zone: 'Unit-101', progress: 50, critical: false },
+  { id: 'PIP-1013', activity_id: 'PIP-1013', name: 'Fabricate Pipe Spool SP-102', activity_name: 'Fabricate Pipe Spool SP-102', discipline: 'Piping', location_zone: 'Zone-13', progress: 60, critical: false },
+  { id: 'CIV-2001', activity_id: 'CIV-2001', name: 'Civil Foundation Excavation', activity_name: 'Civil Foundation Excavation', discipline: 'Civil', location_zone: 'Sector-4B', progress: 65, critical: true },
+  { id: 'CIV-2002', activity_id: 'CIV-2002', name: 'Equipment Pad Concrete Pouring', activity_name: 'Equipment Pad Concrete Pouring', discipline: 'Civil', location_zone: 'Zone-4', progress: 100, critical: false },
+  { id: 'CIV-2003', activity_id: 'CIV-2003', name: 'Mainline Trenching Excavation', activity_name: 'Mainline Trenching Excavation', discipline: 'Civil', location_zone: 'Sector-4B', progress: 45, critical: true },
+  { id: 'CIV-2004', activity_id: 'CIV-2004', name: 'Pipe Rack Support Foundation', activity_name: 'Pipe Rack Support Foundation', discipline: 'Civil', location_zone: 'Zone-4', progress: 85, critical: false },
+  { id: 'MEC-3001', activity_id: 'MEC-3001', name: 'Centrifugal Gas Compressor Skid Erection', activity_name: 'Centrifugal Gas Compressor Skid Erection', discipline: 'Mechanical', location_zone: 'Area-3', progress: 50, critical: true },
+  { id: 'MEC-3002', activity_id: 'MEC-3002', name: 'Heat Exchanger Bundle Insertion', activity_name: 'Heat Exchanger Bundle Insertion', discipline: 'Mechanical', location_zone: 'Unit-2', progress: 30, critical: false },
+  { id: 'ELE-4001', activity_id: 'ELE-4001', name: 'DCS Panel Wiring and Cable Termination', activity_name: 'DCS Panel Wiring and Cable Termination', discipline: 'Electrical', location_zone: 'Control-Room', progress: 85, critical: false },
+  { id: 'ELE-4002', activity_id: 'ELE-4002', name: 'HT Power Cable Laying & Megger Testing', activity_name: 'HT Power Cable Laying & Megger Testing', discipline: 'Electrical', location_zone: 'Zone-4', progress: 70, critical: false },
+  { id: 'INS-5001', activity_id: 'INS-5001', name: 'Flow Transmitter FT-101 Calibration', activity_name: 'Flow Transmitter FT-101 Calibration', discipline: 'Instrumentation', location_zone: 'Unit-1', progress: 90, critical: false },
+  { id: 'TST-6001', activity_id: 'TST-6001', name: 'Mainline Hydrostatic Pressure Test', activity_name: 'Mainline Hydrostatic Pressure Test', discipline: 'Testing', location_zone: 'Sector-4A', progress: 30, critical: true },
+  { id: 'SAF-7001', activity_id: 'SAF-7001', name: 'Daily HSE & Toolbox Briefing', activity_name: 'Daily HSE & Toolbox Briefing', discipline: 'Safety', location_zone: 'Site-Wide', progress: 100, critical: false }
+];

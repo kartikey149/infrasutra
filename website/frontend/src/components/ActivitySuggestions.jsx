@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Sparkles, Activity, ChevronRight, Mic, X, Wand2, Database, Zap } from "lucide-react";
 import { generateSuggestions, getInstantCompletions, detectDiscipline } from "../utils/suggestionEngine";
 
@@ -190,7 +190,7 @@ export default function ActivitySuggestions({
 
   // Recompute both lists whenever query changes
   useEffect(() => {
-    if (!query || query.trim().length < 3) {
+    if (!query || query.trim().length < 2) {
       setGeneratedItems([]);
       setMatchedItems([]);
       setActiveIdx(-1);
@@ -270,34 +270,45 @@ export default function ActivitySuggestions({
 
   if (!generatedItems.length && !matchedItems.length) return null;
 
-  const isPopup = variant === "popup";
+  const isPopup  = variant === "popup";
+  const isInline = variant === "inline";
+
+  // Inline = inside Telegram widget (no wrapper needed — parent provides scroll container)
+  // Popup  = absolute above input (FieldUpdatePage dropdown)
+  // dropdown = default below textarea
+
+  const wrapperClass = isInline
+    ? "w-full bg-white"              // parent wraps with border/scroll
+    : isPopup
+    ? "z-50 w-full bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-fadeIn absolute bottom-full mb-2 left-0 right-0"
+    : "z-50 w-full bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-fadeIn mt-2";
+
+  const listMaxH = isInline ? "none" : isPopup ? "270px" : "350px";
 
   return (
-    <div
-      ref={containerRef}
-      className={`z-50 w-full bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-fadeIn ${
-        isPopup ? "absolute bottom-full mb-2 left-0 right-0" : "mt-2"
-      }`}
-      style={{ maxHeight: isPopup ? "320px" : "400px" }}
-    >
-      {/* -- Top header bar -- */}
-      <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-violet-50 via-indigo-50 to-blue-50 border-b border-slate-100">
+    <div ref={containerRef} className={wrapperClass}>
+      {/* ── Header bar ── */}
+      <div className={`flex items-center justify-between px-3 py-2 border-b border-slate-100 ${
+        isVoice
+          ? "bg-gradient-to-r from-rose-50 via-orange-50 to-amber-50"
+          : "bg-gradient-to-r from-violet-50 via-indigo-50 to-blue-50"
+      }`}>
         <div className="flex items-center gap-2 text-[10px] font-bold">
           {isVoice ? (
             <span className="flex items-center gap-1 text-rose-600">
-              <Mic size={10} className="animate-pulse" /> Voice
+              <Mic size={10} className="animate-pulse" /> Voice matched
             </span>
           ) : (
             <span className="flex items-center gap-1 text-violet-600">
-              <Sparkles size={10} className="text-amber-500" /> AI
+              <Sparkles size={10} className="text-amber-500" /> AI suggestions
             </span>
           )}
-          <span className="text-slate-400">�</span>
-          <span className="text-slate-600">{generatedItems.length} generated</span>
+          <span className="text-slate-300">|</span>
+          <span className="text-slate-500">{generatedItems.length} generated</span>
           {matchedItems.length > 0 && (
             <>
-              <span className="text-slate-400">�</span>
-              <span className="text-slate-600">{matchedItems.length} from schedule</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-500">{matchedItems.length} from schedule</span>
             </>
           )}
         </div>
@@ -306,16 +317,21 @@ export default function ActivitySuggestions({
         </button>
       </div>
 
-      <div className="overflow-y-auto" style={{ maxHeight: isPopup ? "270px" : "350px" }}>
-        {/* -- Section 1: AI Generated Suggestions -- */}
+      {/* ── Voice recording live indicator ── */}
+      {isVoice && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border-b border-rose-200">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0 ring-2 ring-rose-300" />
+          <span className="text-[10px] text-rose-800 font-semibold truncate">
+            🎙️ Voice recognized: <span className="font-bold underline">"{query}"</span> — tap suggestion to auto-fill:
+          </span>
+        </div>
+      )}
+
+      <div className="overflow-y-auto" style={{ maxHeight: listMaxH }}>
+        {/* ── Section 1: AI Generated ── */}
         {generatedItems.length > 0 && (
           <>
-            <SectionHeader
-              icon={<Wand2 size={9} />}
-              label="AI Generated Suggestions"
-              count={generatedItems.length}
-              color="text-violet-600"
-            />
+            <SectionHeader icon={<Wand2 size={9} />} label="AI Generated" count={generatedItems.length} color="text-violet-600" />
             {generatedItems.map((item, idx) => (
               <GeneratedRow
                 key={idx}
@@ -328,15 +344,10 @@ export default function ActivitySuggestions({
           </>
         )}
 
-        {/* -- Section 2: Matched Schedule Activities -- */}
+        {/* ── Section 2: Schedule Matches ── */}
         {matchedItems.length > 0 && (
           <>
-            <SectionHeader
-              icon={<Database size={9} />}
-              label="Matching Schedule Activities"
-              count={matchedItems.length}
-              color="text-indigo-600"
-            />
+            <SectionHeader icon={<Database size={9} />} label="From Schedule" count={matchedItems.length} color="text-indigo-600" />
             {matchedItems.map((item, idx) => {
               const globalIdx = generatedItems.length + idx;
               return (
@@ -353,11 +364,11 @@ export default function ActivitySuggestions({
         )}
       </div>
 
-      {/* -- Footer keyboard hint -- */}
+      {/* ── Footer hint ── */}
       <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[9px] text-slate-400 flex items-center gap-1">
-        <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px]">??</kbd> navigate
-        <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px] ml-1">?</kbd> select
-        <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px] ml-1">Esc</kbd> dismiss
+        <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px]">up/down</kbd> navigate
+        <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px] ml-1">Enter</kbd> select
+        <kbd className="px-1 bg-white border border-slate-200 rounded text-[8px] ml-1">Esc</kbd> close
         <span className="ml-auto flex items-center gap-0.5 text-violet-500 font-bold">
           <Wand2 size={8} /> AI-powered
         </span>
