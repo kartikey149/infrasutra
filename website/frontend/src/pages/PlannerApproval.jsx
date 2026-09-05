@@ -33,6 +33,7 @@ export default function PlannerApproval() {
     matched_activity_id: '',
   });
   const [projectActivities, setProjectActivities] = useState([]);
+  const [expandedDelayId, setExpandedDelayId] = useState(null);
 
   const fetchActivities = async () => {
     if (!activeProject?.id) {
@@ -112,7 +113,11 @@ export default function PlannerApproval() {
         geofence_status: 'LOCKED',
         created_at: new Date().toISOString(),
         photo_hash: 'a9f7e834b281987d6e42cb71a09d',
-        photo_data: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="%230f172a"/><rect x="40" y="40" width="520" height="260" rx="16" fill="%231e293b" stroke="%2338bdf8" stroke-width="3"/><circle cx="300" cy="170" r="60" fill="%23334155"/><path d="M260 210 L300 130 L340 210 Z" fill="%2310b981"/><text x="300" y="270" fill="%23f8fafc" font-size="16" font-family="monospace" text-anchor="middle" font-weight="bold">GEOTAGGED HUD EVIDENCE CAPTURED</text><rect x="0" y="330" width="600" height="70" fill="%23020617"/><text x="20" y="355" fill="%2338bdf8" font-size="12" font-family="monospace">📍 GPS: 28.462212° N, 77.490878° E (±12m)</text><text x="20" y="380" fill="%2310b981" font-size="11" font-family="sans-serif">✓ Geofence Verified • Hardware Camera SHA-256: a9f7e834b2...</text></svg>'
+        photo_data: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="%230f172a"/><rect x="40" y="40" width="520" height="260" rx="16" fill="%231e293b" stroke="%2338bdf8" stroke-width="3"/><circle cx="300" cy="170" r="60" fill="%23334155"/><path d="M260 210 L300 130 L340 210 Z" fill="%2310b981"/><text x="300" y="270" fill="%23f8fafc" font-size="16" font-family="monospace" text-anchor="middle" font-weight="bold">GEOTAGGED HUD EVIDENCE CAPTURED</text><rect x="0" y="330" width="600" height="70" fill="%23020617"/><text x="20" y="355" fill="%2338bdf8" font-size="12" font-family="monospace">📍 GPS: 28.462212° N, 77.490878° E (±12m)</text><text x="20" y="380" fill="%2310b981" font-size="11" font-family="sans-serif">✓ Geofence Verified • Hardware Camera SHA-256: a9f7e834b2...</text></svg>',
+        delay_detected: true,
+        delay_category: 'Weather / Monsoon / Waterlogging',
+        delay_root_cause_notes: 'Heavy monsoon inundation along Jorhat South Bank stopped mainline pipe laying for 6 hours',
+        mitigation_action_proposed: 'Deploy 2 high-capacity dewatering pumps and run extended night shift'
       };
       if (filter === 'all' || filter === 'pending') {
         merged.push(demoSample);
@@ -410,6 +415,38 @@ export default function PlannerApproval() {
                   </div>
                 )}
 
+                {/* Delayed Activity Alert Badge & Interactive Root-Cause Section */}
+                {(item.delay_detected || item.delay_category) && (
+                  <div className="bg-rose-50/90 border border-rose-200 rounded-2xl p-3.5 space-y-2">
+                    <div 
+                      className="flex items-center justify-between cursor-pointer select-none"
+                      onClick={() => setExpandedDelayId(expandedDelayId === item.id ? null : item.id)}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+                        <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+                        ⚠️ Delayed: <span className="underline decoration-rose-400 font-extrabold">{item.delay_category || 'Operational Delay Logged'}</span>
+                      </span>
+                      <span className="text-[11px] text-rose-700 font-bold hover:underline">
+                        {expandedDelayId === item.id ? 'Hide Root Cause ▲' : 'Click to view reason ▼'}
+                      </span>
+                    </div>
+
+                    {expandedDelayId === item.id && (
+                      <div className="pt-2 border-t border-rose-200 text-xs text-slate-700 space-y-1.5 animate-fadeIn">
+                        <div>
+                          <strong className="text-slate-900">Logged Root Cause:</strong>{' '}
+                          <span className="italic">{item.delay_root_cause_notes || item.raw_input}</span>
+                        </div>
+                        {item.mitigation_action_proposed && (
+                          <div>
+                            <strong className="text-emerald-800">Proposed Site Mitigation:</strong>{' '}
+                            <span>{item.mitigation_action_proposed}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* AI Extracted & Matched Activity */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">

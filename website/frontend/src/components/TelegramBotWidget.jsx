@@ -23,6 +23,15 @@ import { API_BASE, EXPRESS_API_BASE } from '../config';
 import ActivitySuggestions from './ActivitySuggestions';
 import { DEFAULT_ACTIVITIES } from '../utils/suggestionEngine';
 
+const TELEGRAM_DELAY_CATEGORIES = [
+  'Weather / Monsoon / Waterlogging',
+  'Right of Way (ROW) / Land Clearance Issues',
+  'Material / Pipe Supply Shortage',
+  'Equipment Breakdown / Rig Failure',
+  'Manpower / Labor Shortage or Dispute',
+  'Engineering / Drawing Clarification Pending'
+];
+
 export default function TelegramBotWidget() {
   const { t, i18n } = useTranslation();
   const { activeProject } = useProject();
@@ -198,6 +207,58 @@ export default function TelegramBotWidget() {
     }
   };
 
+  const handleSelectDelayCategory = async (recordId, categoryName, actName) => {
+    try {
+      if (recordId) {
+        await fetch(`${API_BASE}/pending-updates/${recordId}/delay-reason`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            delay_category: categoryName,
+            delay_root_cause_notes: `Operational delay selected via Telegram Bot for ${actName || 'activity'}`
+          })
+        });
+      }
+    } catch (e) {
+      console.warn('Delay reason sync offline:', e);
+    }
+
+    try {
+      const queue = JSON.parse(localStorage.getItem('sih_pending_updates') || '[]');
+      const updated = queue.map(item => {
+        if (String(item.id) === String(recordId)) {
+          return {
+            ...item,
+            delay_detected: true,
+            delay_category: categoryName,
+            delay_root_cause_notes: `Operational delay selected via Telegram Bot for ${actName || 'activity'}`
+          };
+        }
+        return item;
+      });
+      localStorage.setItem('sih_pending_updates', JSON.stringify(updated));
+    } catch (e) {}
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        sender: 'user',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        text: `Root Cause: ${categoryName}`
+      },
+      {
+        id: (Date.now() + 1).toString(),
+        sender: 'bot',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        text: `✅ *Root-Cause Captured & Synced!*\n\n• *Category:* ${categoryName}\n• *Protocol:* Zero Unexplained Variances\n\nPlanner will see this category badge in the Review Queue and Schedule Explorer.`
+      }
+    ]);
+  };
+
   const handleSendMessage = async (textToSend = null) => {
     let query = (textToSend || inputText).trim();
     if (!query || isProcessing) return;
@@ -299,8 +360,11 @@ export default function TelegramBotWidget() {
           `• *Confidence:* ${confPercent}%\n\n` +
           `📌 *Status:* ${statusText}`;
 
-        setMessages((prev) => [
-          ...prev,
+        const isDelayDetected = 
+          data.delay_detected || 
+          /delay|stopped|stoppage|stuck|breakdown|rain|monsoon|waterlog|halt|shortage/i.test(query);
+
+        const botReplies = [
           {
             id: (Date.now() + 1).toString(),
             sender: 'bot',
@@ -310,7 +374,21 @@ export default function TelegramBotWidget() {
             matchedActivity: match,
             autoApproved: data.auto_approved
           }
-        ]);
+        ];
+
+        if (isDelayDetected) {
+          botReplies.push({
+            id: (Date.now() + 2).toString(),
+            sender: 'bot',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            text: `⚠️ *Delay detected for activity [${match ? match.activity_name : (data.extracted?.extracted_task || 'Pipeline Task')}].*\n\nPlease specify the operational root-cause category:`,
+            isDelayPrompt: true,
+            recordId: data.pending_update_id,
+            activityName: match ? match.activity_name : data.extracted?.extracted_task
+          });
+        }
+
+        setMessages((prev) => [...prev, ...botReplies]);
       } else {
         throw new Error('API returned unsuccessful response');
       }
@@ -443,6 +521,26 @@ export default function TelegramBotWidget() {
                       >
                         {m.autoApproved ? 'View Schedule' : 'Review Queue'} <ExternalLink size={11} />
                       </Link>
+                    </div>
+                  )}
+
+                  {m.isDelayPrompt && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5">
+                      <div className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                        Select Delay Root Cause:
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TELEGRAM_DELAY_CATEGORIES.map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => handleSelectDelayCategory(m.recordId, cat, m.activityName)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 shadow-sm transition hover:border-indigo-400 text-left"
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
 

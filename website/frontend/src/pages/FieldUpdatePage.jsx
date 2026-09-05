@@ -7,12 +7,22 @@ import {
   Send, Zap, Edit3, Trash2, History, PlusCircle,
   AlertCircle, HardHat, Briefcase, Filter, X,
   Camera, MapPin, RefreshCw, ShieldCheck, Compass,
-  Eye, RotateCcw, Lock, Video, FlipHorizontal, Upload, Clock
+  Eye, RotateCcw, Lock, Video, FlipHorizontal, Upload, Clock,
+  AlertTriangle, Mic, MicOff, CloudRain, Truck, Box, Wrench, Users, FileQuestion
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { API_BASE } from '../config';
 import ActivitySuggestions from '../components/ActivitySuggestions';
 import { DEFAULT_ACTIVITIES } from '../utils/suggestionEngine';
+
+const DELAY_CATEGORIES = [
+  { id: 'weather', name: 'Weather / Monsoon / Waterlogging', icon: CloudRain, color: 'text-sky-600 bg-sky-50 border-sky-300' },
+  { id: 'row', name: 'Right of Way (ROW) / Land Clearance Issues', icon: Truck, color: 'text-amber-600 bg-amber-50 border-amber-300' },
+  { id: 'material', name: 'Material / Pipe Supply Shortage', icon: Box, color: 'text-purple-600 bg-purple-50 border-purple-300' },
+  { id: 'equipment', name: 'Equipment Breakdown / Rig Failure', icon: Wrench, color: 'text-rose-600 bg-rose-50 border-rose-300' },
+  { id: 'manpower', name: 'Manpower / Labor Shortage or Dispute', icon: Users, color: 'text-orange-600 bg-orange-50 border-orange-300' },
+  { id: 'engineering', name: 'Engineering / Drawing Clarification Pending', icon: FileQuestion, color: 'text-emerald-600 bg-emerald-50 border-emerald-300' },
+];
 
 const PROJECT_SITE_COORDINATES = {
   'PRJ-01': {
@@ -354,6 +364,92 @@ export default function FieldUpdatePage() {
   });
   const [projectActivities, setProjectActivities] = useState(DEFAULT_ACTIVITIES);
 
+  // Interactive Delay Reason & Root Cause Capture State
+  const [delayModalOpen, setDelayModalOpen] = useState(false);
+  const [delayRecord, setDelayRecord] = useState(null);
+  const [delayCategory, setDelayCategory] = useState('Weather / Monsoon / Waterlogging');
+  const [delayNotes, setDelayNotes] = useState('');
+  const [delayMitigation, setDelayMitigation] = useState('');
+  const [isDelayVoiceRecording, setIsDelayVoiceRecording] = useState(false);
+  const delayVoiceRef = useRef(null);
+
+  // Voice recognition for delay explanation
+  const toggleDelayVoice = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+    if (isDelayVoiceRecording && delayVoiceRef.current) {
+      delayVoiceRef.current.stop();
+      setIsDelayVoiceRecording(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onstart = () => {
+        setIsDelayVoiceRecording(true);
+      };
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+        setDelayNotes(transcript);
+      };
+      recognition.onerror = () => setIsDelayVoiceRecording(false);
+      recognition.onend = () => setIsDelayVoiceRecording(false);
+      delayVoiceRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      setIsDelayVoiceRecording(false);
+    }
+  };
+
+  // Submit delay root cause to backend and update local queue
+  const handleSaveDelayReason = async () => {
+    if (!delayRecord) return;
+    try {
+      await authFetch(`${API_BASE}/pending-updates/${delayRecord.id}/delay-reason`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          delay_category: delayCategory,
+          delay_root_cause_notes: delayNotes,
+          mitigation_action_proposed: delayMitigation
+        })
+      });
+    } catch (err) {
+      console.warn('Backend delay-reason endpoint offline, saving to local store:', err);
+    }
+
+    // Update in localStorage pending updates queue
+    try {
+      const existingQueue = JSON.parse(localStorage.getItem('sih_pending_updates') || '[]');
+      const updated = existingQueue.map(item => {
+        if (String(item.id) === String(delayRecord.id)) {
+          return {
+            ...item,
+            delay_detected: true,
+            delay_category: delayCategory,
+            delay_root_cause_notes: delayNotes,
+            mitigation_action_proposed: delayMitigation
+          };
+        }
+        return item;
+      });
+      localStorage.setItem('sih_pending_updates', JSON.stringify(updated));
+    } catch (e) {}
+
+    setDelayModalOpen(false);
+    setDelayNotes('');
+    setDelayMitigation('');
+  };
+
   // Fetch activities for manual override dropdown & suggestions
   const fetchActivities = async () => {
     if (!activeProject?.id) {
@@ -523,6 +619,7 @@ export default function FieldUpdatePage() {
       console.warn('LocalStorage queue update error:', e);
     }
 
+    let responseData = null;
     try {
       const res = await authFetch(`${API_BASE}/field-update`, {
         method: 'POST',
@@ -547,6 +644,7 @@ export default function FieldUpdatePage() {
         })
       });
       const data = await res.json();
+      responseData = data;
       if (data.success) {
         setResult(data);
       } else {
@@ -557,6 +655,25 @@ export default function FieldUpdatePage() {
       console.warn('Backend offline; submission saved to local tamper-proof store:', err);
       setResult({ success: true, message: 'Observation saved locally with verified geotag photo & GPS coordinates. Awaiting Planner approval.' });
     } finally {
+      // Check if delay detected
+      const isDelayDetected = 
+        (responseData && responseData.delay_detected) ||
+        /delay|stoppage|stopped|halt|stuck|breakdown|failure|shortage|waterlog|flood|rain|monsoon|dispute|issue|problem|blocker|slow|lag/i.test(pendingRecord.raw_input) ||
+        (pendingRecord.percent_complete < 50 && pendingRecord.event_type !== 'Actual Start');
+
+      if (isDelayDetected) {
+        setDelayRecord({
+          id: (responseData && responseData.pending_update_id) || pendingRecord.id,
+          activity_id: pendingRecord.matched_activity_id,
+          activity_name: pendingRecord.matched_activity_name,
+          raw_input: pendingRecord.raw_input
+        });
+        if (responseData?.delay_category) {
+          setDelayCategory(responseData.delay_category);
+        }
+        setDelayModalOpen(true);
+      }
+
       setInputText('');
       setCapturedPhoto(null);
       setLoading(false);
@@ -1567,6 +1684,139 @@ export default function FieldUpdatePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE DELAY REASON & ROOT CAUSE CAPTURE MODAL */}
+      {delayModalOpen && delayRecord && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-rose-200 w-full max-w-xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-600">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Delay Detected &bull; Operational Root-Cause Required
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Activity: <strong className="text-slate-800">{delayRecord.activity_id} ({delayRecord.activity_name})</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDelayModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+              <AlertCircle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <strong>Zero Unexplained Variances Protocol:</strong> System detected schedule slippage or delay keywords in your submission. Please select the primary root cause category and log operational details.
+              </div>
+            </div>
+
+            {/* 6 Structured Delay Category Chips */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700 text-xs block">
+                Primary Root Cause Category
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {DELAY_CATEGORIES.map((cat) => {
+                  const Icon = cat.icon;
+                  const isSelected = delayCategory === cat.name;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setDelayCategory(cat.name)}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left text-xs font-bold transition ${
+                        isSelected
+                          ? `${cat.color} ring-2 ring-indigo-500/40 shadow-sm font-extrabold`
+                          : 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Icon size={16} className="flex-shrink-0" />
+                      <span className="truncate">{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Voice Dictation + Text Explanation */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <label className="font-bold text-slate-700">
+                  Detailed Operational Explanation
+                </label>
+                <button
+                  type="button"
+                  onClick={toggleDelayVoice}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                    isDelayVoiceRecording
+                      ? 'bg-rose-500 text-white animate-pulse'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {isDelayVoiceRecording ? (
+                    <>
+                      <MicOff size={12} /> Listening... Click to stop
+                    </>
+                  ) : (
+                    <>
+                      <Mic size={12} className="text-indigo-600" /> Dictate with Voice
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <textarea
+                rows={3}
+                value={delayNotes}
+                onChange={(e) => setDelayNotes(e.target.value)}
+                placeholder="e.g. Heavy monsoon inundation along Jorhat South Bank stopped HDD drilling for 6 hours..."
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:border-slate-900"
+              />
+            </div>
+
+            {/* Proposed Mitigation Action */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700 text-xs block">
+                Proposed Mitigation Action (Optional)
+              </label>
+              <input
+                type="text"
+                value={delayMitigation}
+                onChange={(e) => setDelayMitigation(e.target.value)}
+                placeholder="e.g. Deploy 2 supplementary dewatering pumps and schedule night shift"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:border-slate-900"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDelayModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold"
+              >
+                Skip / Later
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDelayReason}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+              >
+                <CheckCircle2 size={14} /> Save Root Cause & Submit
+              </button>
+            </div>
           </div>
         </div>
       )}

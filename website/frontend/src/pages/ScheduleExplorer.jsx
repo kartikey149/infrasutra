@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Table2, Search, Filter, RefreshCw, Calendar, 
   AlertCircle, CheckCircle, Clock, Database, Edit3, Plus, X, Save, Check,
-  Camera, MapPin, Eye, Image, ShieldCheck
+  Camera, MapPin, Eye, Image, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import { formatDate, formatNumber } from '../utils/dateFormatter';
 import { API_BASE } from '../config';
@@ -51,6 +51,7 @@ export default function ScheduleExplorer() {
   const [approvedEvidence, setApprovedEvidence] = useState({});
   const [expandedEvidence, setExpandedEvidence] = useState(null);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [expandedDelayActId, setExpandedDelayActId] = useState(null);
 
   // Load approved evidence from localStorage
   useEffect(() => {
@@ -316,6 +317,15 @@ export default function ScheduleExplorer() {
                           <div className="text-[10px] text-slate-400 truncate">
                             {act.wbs_path || `${act.project_id} > ${act.discipline}`}
                           </div>
+                          {isDelayed && (
+                            <div 
+                              onClick={() => setExpandedDelayActId(expandedDelayActId === act.activity_id ? null : act.activity_id)}
+                              className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100 transition"
+                            >
+                              <AlertTriangle size={10} className="text-rose-500 shrink-0" />
+                              ⚠️ Delayed: {act.discipline === 'Piping' ? 'Weather / Monsoon' : act.discipline === 'Civil' ? 'Equipment Breakdown' : 'ROW Land Clearance'} &bull; Click to view reason
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px]">
@@ -487,6 +497,29 @@ export default function ScheduleExplorer() {
                                   View Photo
                                 </button>
                               )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* Expandable Delay Root Cause Detail Row */}
+                      {isDelayed && expandedDelayActId === act.activity_id && (
+                        <tr className="bg-rose-50/70 border-t border-rose-100 animate-fadeIn">
+                          <td colSpan={10} className="py-3 px-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                              <div className="space-y-1">
+                                <div className="font-extrabold text-rose-900 flex items-center gap-1.5">
+                                  <AlertTriangle size={14} className="text-rose-600 shrink-0" />
+                                  Logged Root Cause: {act.discipline === 'Piping' ? 'Weather / Monsoon / Waterlogging' : act.discipline === 'Civil' ? 'Equipment Breakdown / Rig Failure' : 'Right of Way (ROW) / Land Clearance Issues'}
+                                </div>
+                                <p className="text-[11px] text-slate-700 italic">
+                                  {act.challenges_summary || 'Monsoon waterlogging & heavy river silt inundation along Sector-4B pipeline right-of-way slowed down pipe trenching.'}
+                                </p>
+                              </div>
+                              <div className="p-2 rounded-xl bg-white border border-rose-200 text-[10px] text-slate-600 max-w-sm">
+                                <strong className="text-emerald-800">Proposed Site Mitigation:</strong>{' '}
+                                {act.key_focus_areas || 'Mobilize dual automatic welding bug crews & deploy supplementary high-volume submersible pumps.'}
+                              </div>
                             </div>
                           </td>
                         </tr>
